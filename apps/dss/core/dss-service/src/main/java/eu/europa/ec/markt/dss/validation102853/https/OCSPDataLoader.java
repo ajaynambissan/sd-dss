@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Implementation of DataLoader using HttpClient. More flexible for HTTPS without having to add the certificate to the JVM TrustStore.
  *
- * @version $Revision: 3675 $ - $Date: 2014-03-31 19:59:20 +0200 (Mon, 31 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 public class OCSPDataLoader extends CommonsDataLoader {
 

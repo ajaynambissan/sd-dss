@@ -33,7 +33,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificatePool;
 /**
  * The usage of this interface permit the user to choose the underlying PDF library use to created PDF signatures.
  *
- * @version $Revision: 4264 $ - $Date: 2014-07-14 17:21:17 +0200 (Mon, 14 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 public interface PDFSignatureService {
 

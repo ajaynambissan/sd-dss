@@ -52,7 +52,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateVerifier;
 /**
  * PAdES implementation of the DocumentSignatureService
  *
- * @version $Revision: 4278 $ - $Date: 2014-07-15 09:58:55 +0200 (Tue, 15 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class PAdESService extends AbstractSignatureService {

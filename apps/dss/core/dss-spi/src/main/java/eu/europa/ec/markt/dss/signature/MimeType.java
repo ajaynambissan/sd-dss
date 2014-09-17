@@ -22,10 +22,10 @@
  * Project: Digital Signature Services (DSS)
  * Contractor: ARHS-Developments
  *
- * $HeadURL: http://forge.aris-lux.lan/svn/dgmarktdss/trunk/apps/dss/core/dss-spi/src/main/java/eu/europa/ec/markt/dss/signature/MimeType.java $
- * $Revision: 4224 $
- * $Date: 2014-07-10 06:56:48 +0200 (Thu, 10 Jul 2014) $
- * $Author: bielecro $
+ * $HeadURL$
+ * $Revision$
+ * $Date$
+ * $Author$
  */
 package eu.europa.ec.markt.dss.signature;
 
@@ -41,11 +41,12 @@ import eu.europa.ec.markt.dss.DSSUtils;
  * <p> DISCLAIMER: Project owner DG-MARKT.
  *
  * @author <a href="mailto:dgmarkt.Project-DSS@arhs-developments.com">ARHS Developments</a>
- * @version $Revision: 4224 $ - $Date: 2014-07-10 06:56:48 +0200 (Thu, 10 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 public enum MimeType {
 
-	BINARY("application/octet-stream"), XML("text/xml"), PDF("application/pdf"), PKCS7("application/pkcs7-signature"), ASICS("application/vnd.etsi.asic-s+zip"), TEXT("text/plain");
+	BINARY("application/octet-stream"), XML("text/xml"), PDF("application/pdf"), PKCS7("application/pkcs7-signature"), ASICS("application/vnd.etsi.asic-s+zip"), ASICE(
+		  "application/vnd.etsi.asic-e+zip"), TEXT("text/plain");
 
 	private String code;
 
@@ -54,6 +55,8 @@ public enum MimeType {
 		put("pdf", PDF);
 		put("asics", ASICS);
 		put("scs", ASICS);
+		put("asice", ASICE);
+		put("sce", ASICE);
 		put("txt", TEXT);
 	}};
 

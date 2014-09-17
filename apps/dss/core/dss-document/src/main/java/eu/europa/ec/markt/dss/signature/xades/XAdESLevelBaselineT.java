@@ -58,7 +58,7 @@ import eu.europa.ec.markt.dss.validation102853.xades.XAdESSignature;
 /**
  * -T profile of XAdES signature
  *
- * @version $Revision: 4324 $ - $Date: 2014-07-16 09:35:52 +0200 (Wed, 16 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class XAdESLevelBaselineT extends ExtensionBuilder implements XAdESSignatureExtension {
@@ -131,7 +131,7 @@ public class XAdESLevelBaselineT extends ExtensionBuilder implements XAdESSignat
 			final CertificatePool certPool = new CertificatePool();
 			// TODO-Bob (13/07/2014):  The XPath query holder can be inherited from the xadesSignature: to be analysed
 			xadesSignature = new XAdESSignature(currentSignatureDom, certPool);
-			xadesSignature.setDetachedContent(params.getDetachedContent());
+			xadesSignature.setDetachedContents(params.getDetachedContent());
 			// In the cse of the extension of the signature the signing certificate must be included within the signature
 			// xadesSignature.setProvidedSigningCertificateToken(null);
 			extendSignatureTag();
@@ -162,9 +162,9 @@ public class XAdESLevelBaselineT extends ExtensionBuilder implements XAdESSignat
 		if (!xadesSignature.hasTProfile() || SignatureLevel.XAdES_BASELINE_T.equals(params.getSignatureLevel())) {
 
 			final byte[] canonicalisedValue = xadesSignature.getSignatureTimestampData(null);
-			final DigestAlgorithm timestampDigestAlgorithm = params.getTimestampDigestAlgorithm();
+			final DigestAlgorithm timestampDigestAlgorithm = params.getSignatureTimestampParameters().getDigestAlgorithm();
 			final byte[] digestValue = DSSUtils.digest(timestampDigestAlgorithm, canonicalisedValue);
-			final String canonicalizationMethod = XAdESSignature.DEFAULT_TIMESTAMP_CREATION_CANONICALIZATION_METHOD;
+			final String canonicalizationMethod = params.getSignatureTimestampParameters().getCanonicalizationMethod();
 			createXAdESTimeStampType(TimestampType.SIGNATURE_TIMESTAMP, canonicalizationMethod, digestValue);
 		}
 	}
@@ -228,7 +228,30 @@ public class XAdESLevelBaselineT extends ExtensionBuilder implements XAdESSignat
 
 		try {
 
-			final DigestAlgorithm timestampDigestAlgorithm = params.getTimestampDigestAlgorithm();
+			Element timeStampDom = null;
+			DigestAlgorithm timestampDigestAlgorithm = null;
+			switch (timestampType) {
+
+				case SIGNATURE_TIMESTAMP:
+					// <xades:SignatureTimeStamp Id="time-stamp-1dee38c4-8388-40d1-8880-9eeda853fe60">
+					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES, "xades:SignatureTimeStamp");
+					timestampDigestAlgorithm = params.getSignatureTimestampParameters().getDigestAlgorithm();
+					break;
+				case VALIDATION_DATA_REFSONLY_TIMESTAMP:
+					timestampDigestAlgorithm = params.getSignatureTimestampParameters().getDigestAlgorithm();
+					break;
+				case VALIDATION_DATA_TIMESTAMP:
+					// <xades:SigAndRefsTimeStamp Id="time-stamp-a762ab0e-e05c-4cc8-a804-cf2c4ffb5516">
+					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES, "xades:SigAndRefsTimeStamp");
+					timestampDigestAlgorithm = params.getSignatureTimestampParameters().getDigestAlgorithm();
+					break;
+				case ARCHIVE_TIMESTAMP:
+					// <xades141:ArchiveTimeStamp Id="time-stamp-a762ab0e-e05c-4cc8-a804-cf2c4ffb5516">
+					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES141, "xades141:ArchiveTimeStamp");
+					timestampDigestAlgorithm = params.getArchiveTimestampParameters().getDigestAlgorithm();
+					break;
+			}
+
 			if (LOG.isInfoEnabled()) {
 
 				final String encodedDigestValue = DSSUtils.base64Encode(digestValue);
@@ -239,33 +262,6 @@ public class XAdESLevelBaselineT extends ExtensionBuilder implements XAdESSignat
 
 			final String signatureTimestampId = "time-stamp-token-" + UUID.randomUUID().toString();
 			final String base64EncodedTimeStampToken = DSSUtils.base64Encode(timeStampTokenBytes);
-
-			Element timeStampDom = null;
-			switch (timestampType) {
-
-				case SIGNATURE_TIMESTAMP:
-					// <xades:SignatureTimeStamp Id="time-stamp-1dee38c4-8388-40d1-8880-9eeda853fe60">
-					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES, "xades:SignatureTimeStamp");
-					break;
-				case VALIDATION_DATA_REFSONLY_TIMESTAMP:
-					break;
-				case VALIDATION_DATA_TIMESTAMP:
-					// <xades:SigAndRefsTimeStamp Id="time-stamp-a762ab0e-e05c-4cc8-a804-cf2c4ffb5516">
-					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES, "xades:SigAndRefsTimeStamp");
-					break;
-				case ARCHIVE_TIMESTAMP:
-					// <xades141:ArchiveTimeStamp Id="time-stamp-a762ab0e-e05c-4cc8-a804-cf2c4ffb5516">
-					timeStampDom = DSSXMLUtils.addElement(documentDom, unsignedSignaturePropertiesDom, XAdESNamespaces.XAdES141, "xades141:ArchiveTimeStamp");
-					break;
-				case CONTENT_TIMESTAMP:
-					break;
-				case ALL_DATA_OBJECTS_TIMESTAMP:
-					timeStampDom = DSSXMLUtils.addElement(documentDom, signedPropertiesDom, XAdESNamespaces.XAdES, "xades:AllDataObjectsTimeStamp");
-					break;
-				case INDIVIDUAL_DATA_OBJECTS_TIMESTAMP:
-					timeStampDom = DSSXMLUtils.addElement(documentDom, signedPropertiesDom, XAdESNamespaces.XAdES, "xades:IndividualDataObjectsTimeStamp");
-					break;
-			}
 			timeStampDom.setAttribute("Id", signatureTimestampId);
 
 			// <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>

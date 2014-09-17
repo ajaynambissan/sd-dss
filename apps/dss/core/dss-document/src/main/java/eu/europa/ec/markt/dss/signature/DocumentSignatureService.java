@@ -27,7 +27,7 @@ import eu.europa.ec.markt.dss.validation102853.tsp.TSPSource;
 /**
  * This interface {@code DocumentSignatureService} provides operations for the signature creation and for its extension.
  *
- * @version $Revision: 4340 $ - $Date: 2014-07-19 07:17:23 +0200 (Sat, 19 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 public interface DocumentSignatureService {
 

@@ -39,7 +39,7 @@ import eu.europa.ec.markt.dss.validation102853.crl.CRLToken;
 /**
  * XL profile of XAdES signature
  *
- * @version $Revision: 4235 $ - $Date: 2014-07-11 15:44:15 +0200 (Fri, 11 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class XAdESLevelXL extends XAdESLevelX {

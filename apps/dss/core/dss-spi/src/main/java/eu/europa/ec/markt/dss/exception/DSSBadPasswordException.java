@@ -25,7 +25,7 @@ import java.util.ResourceBundle;
 /**
  * Thrown when using bad password
  *
- * @version $Revision: 3113 $ - $Date: 2013-12-04 16:00:22 +0100 (Wed, 04 Dec 2013) $
+ * @version $Revision$ - $Date$
  */
 
 public class DSSBadPasswordException extends RuntimeException {

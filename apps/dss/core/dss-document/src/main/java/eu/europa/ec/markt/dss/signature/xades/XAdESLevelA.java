@@ -33,7 +33,7 @@ import eu.europa.ec.markt.dss.validation102853.xades.XAdESSignature;
 /**
  * Holds level A aspects of XAdES
  *
- * @version $Revision: 4263 $ - $Date: 2014-07-14 14:04:54 +0200 (Mon, 14 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class XAdESLevelA extends XAdESLevelXL {
@@ -65,7 +65,7 @@ public class XAdESLevelA extends XAdESLevelXL {
         xadesSignature.checkSignatureIntegrity();
 
         final byte[] data = xadesSignature.getArchiveTimestampData(null);
-        final DigestAlgorithm timestampDigestAlgorithm = params.getTimestampDigestAlgorithm();
+        final DigestAlgorithm timestampDigestAlgorithm = params.getSignatureTimestampParameters().getDigestAlgorithm();
         final byte[] digestBytes = DSSUtils.digest(timestampDigestAlgorithm, data);
         createXAdESTimeStampType(TimestampType.ARCHIVE_TIMESTAMP, XAdESSignature.DEFAULT_TIMESTAMP_CREATION_CANONICALIZATION_METHOD, digestBytes);
     }

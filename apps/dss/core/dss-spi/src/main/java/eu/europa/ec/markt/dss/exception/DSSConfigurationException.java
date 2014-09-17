@@ -26,7 +26,7 @@ import java.util.ResourceBundle;
  * Occurs when a configuration is missing/faulty in the DSS server. Because this exception occurs only when the server
  * is not well configured, it's a RuntimeException.
  *
- * @version $Revision: 3113 $ - $Date: 2013-12-04 16:00:22 +0100 (Wed, 04 Dec 2013) $
+ * @version $Revision$ - $Date$
  */
 
 @SuppressWarnings("serial")

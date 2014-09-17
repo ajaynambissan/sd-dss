@@ -14,6 +14,7 @@ import javax.xml.bind.annotation.XmlType;
  * <pre>
  * &lt;simpleType name="signatureLevel">
  *   &lt;restriction base="{http://www.w3.org/2001/XMLSchema}string">
+ *     &lt;enumeration value="XMLDSIG"/>
  *     &lt;enumeration value="XAdES_C"/>
  *     &lt;enumeration value="XAdES_X"/>
  *     &lt;enumeration value="XAdES_XL"/>
@@ -51,6 +52,7 @@ import javax.xml.bind.annotation.XmlType;
 @XmlEnum
 public enum SignatureLevel {
 
+    XMLDSIG("XMLDSIG"),
     @XmlEnumValue("XAdES_C")
     XAdES_C("XAdES_C"),
     @XmlEnumValue("XAdES_X")
@@ -75,8 +77,11 @@ public enum SignatureLevel {
     CAdES_BASELINE_T("CAdES_BASELINE_T"),
     @XmlEnumValue("CAdES_BASELINE_B")
     CAdES_BASELINE_B("CAdES_BASELINE_B"),
+    @XmlEnumValue("CAdES_101733_C")
     CAdES_101733_C("CAdES_101733_C"),
+    @XmlEnumValue("CAdES_101733_X")
     CAdES_101733_X("CAdES_101733_X"),
+    @XmlEnumValue("CAdES_101733_A")
     CAdES_101733_A("CAdES_101733_A"),
     @XmlEnumValue("PAdES_BASELINE_LTA")
     PAdES_BASELINE_LTA("PAdES_BASELINE_LTA"),

@@ -55,7 +55,7 @@ import eu.europa.ec.markt.dss.validation102853.tsp.TSPSource;
 /**
  * Base class for extending a CAdESSignature.
  *
- * @version $Revision: 4324 $ - $Date: 2014-07-16 09:35:52 +0200 (Wed, 16 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 abstract class CAdESSignatureExtension implements SignatureExtension {
@@ -138,7 +138,8 @@ abstract class CAdESSignatureExtension implements SignatureExtension {
 		final List<SignerInformation> newSignerInformationList = new ArrayList<SignerInformation>();
 		for (SignerInformation signerInformation : signerInformationCollection) {
 
-			final CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation, parameters.getDetachedContent());
+			final CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation);
+			cadesSignature.setDetachedContents(parameters.getDetachedContent());
 			assertSignatureValid(cadesSignature, parameters);
 			final SignerInformation newSignerInformation = extendCMSSignature(cmsSignedData, signerInformation, parameters);
 			newSignerInformationList.add(newSignerInformation);
@@ -171,7 +172,8 @@ abstract class CAdESSignatureExtension implements SignatureExtension {
 
 			if (lastSignerInformation == signerInformation) {
 
-				final CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation, parameters.getDetachedContent());
+				final CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation);
+				cadesSignature.setDetachedContents(parameters.getDetachedContent());
 				assertSignatureValid(cadesSignature, parameters);
 				final SignerInformation newSignerInformation = extendCMSSignature(cmsSignedData, signerInformation, parameters);
 				newSignerInformationList.add(newSignerInformation);
@@ -249,7 +251,7 @@ abstract class CAdESSignatureExtension implements SignatureExtension {
 
 	protected ASN1Object getTimeStampAttributeValue(TSPSource tspSource, byte[] message, SignatureParameters parameters) {
 
-		final DigestAlgorithm timestampDigestAlgorithm = parameters.getTimestampDigestAlgorithm();
+		final DigestAlgorithm timestampDigestAlgorithm = parameters.getSignatureTimestampParameters().getDigestAlgorithm();
 		ASN1Object signatureTimeStampValue = getTimeStampAttributeValue(tspSource, message, timestampDigestAlgorithm);
 		return signatureTimeStampValue;
 	}
@@ -279,6 +281,7 @@ abstract class CAdESSignatureExtension implements SignatureExtension {
 
 			CMSSignedData cmsSignedDataTimeStampToken = new CMSSignedData(timeStampToken.getEncoded());
 
+			// TODO (27/08/2014): attributesForTimestampToken cannot be null: to be modified
 			if (attributesForTimestampToken != null) {
 				// timeStampToken contains one and only one signer
 				final SignerInformation signerInformation = (SignerInformation) cmsSignedDataTimeStampToken.getSignerInfos().getSigners().iterator().next();

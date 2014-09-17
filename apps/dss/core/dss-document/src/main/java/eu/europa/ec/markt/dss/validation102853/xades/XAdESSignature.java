@@ -153,14 +153,14 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 		 * Adds the support of ECDSA_RIPEMD160 for XML signature. Used by AT.
 		 * The BC provider must be previously added.
 		 */
-		final JCEMapper.Algorithm algorithm = new JCEMapper.Algorithm("", SignatureAlgorithm.ECDSA_RIPEMD160.getJCEId(), "Signature");
-		final String xmlId = SignatureAlgorithm.ECDSA_RIPEMD160.getXMLId();
-		JCEMapper.register(xmlId, algorithm);
-		try {
-			org.apache.xml.security.algorithms.SignatureAlgorithm.register(xmlId, SignatureECDSARIPEMD160.class);
-		} catch (Exception e) {
-			LOG.error("ECDSA_RIPEMD160 algorithm initialisation failed.", e);
-		}
+//		final JCEMapper.Algorithm algorithm = new JCEMapper.Algorithm("", SignatureAlgorithm.ECDSA_RIPEMD160.getJCEId(), "Signature");
+//		final String xmlId = SignatureAlgorithm.ECDSA_RIPEMD160.getXMLId();
+//		JCEMapper.register(xmlId, algorithm);
+//		try {
+//			org.apache.xml.security.algorithms.SignatureAlgorithm.register(xmlId, SignatureECDSARIPEMD160.class);
+//		} catch (Exception e) {
+//			LOG.error("ECDSA_RIPEMD160 algorithm initialisation failed.", e);
+//		}
 
 		/**
 		 * Adds the support of not standard algorithm name: http://www.w3.org/2001/04/xmldsig-more/rsa-ripemd160. Used by some AT signature providers.
@@ -387,7 +387,7 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 		if (length == 0) {
 
 			final SigningCertificateValidity theSigningCertificateValidity = candidates.getTheSigningCertificateValidity();
-			final CertificateToken certificateToken = theSigningCertificateValidity.getCertificateToken();
+			final CertificateToken certificateToken = theSigningCertificateValidity == null ? null : theSigningCertificateValidity.getCertificateToken();
 			// The check need to be done at the level of KeyInfo
 			for (final Reference reference : references) {
 
@@ -403,7 +403,7 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 
 					continue;
 				}
-				if (id.equals(certificateToken.getXmlId())) {
+				if (certificateToken != null && id.equals(certificateToken.getXmlId())) {
 
 					theSigningCertificateValidity.setSigned(element.getNodeName());
 					return;
@@ -1217,7 +1217,7 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 
 			final XMLSignature santuarioSignature = new XMLSignature(signatureElement, "");
 			santuarioSignature.addResourceResolver(new XPointerResourceResolver(signatureElement));
-			santuarioSignature.addResourceResolver(new OfflineResolver(detachedContent));
+			santuarioSignature.addResourceResolver(new OfflineResolver(detachedContents));
 
 			boolean coreValidity = false;
 			final List<SigningCertificateValidity> signingCertificateValidityList = getSigningCertificateValidityList(santuarioSignature, signatureCryptographicVerification,
@@ -1247,7 +1247,7 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 				final Reference reference = signedInfo.item(ii);
 				if (!coreValidity) {
 
-				referenceDataHashValid = referenceDataHashValid && reference.verify();
+					referenceDataHashValid = referenceDataHashValid && reference.verify();
 				}
 				references.add(reference);
 			}
@@ -1353,8 +1353,6 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 	public List<AdvancedSignature> getCounterSignatures() {
 
 		// see ETSI TS 101 903 V1.4.2 (2010-12) pp. 38/39/40
-
-		//  try {
 		NodeList counterSigs = DSSXMLUtils.getNodeList(signatureElement, xPathQueryHolder.XPATH_COUNTER_SIGNATURE);
 		if (counterSigs == null) {
 			return null;
@@ -1363,53 +1361,58 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 		List<AdvancedSignature> xadesList = new ArrayList<AdvancedSignature>();
 
 		for (int i = 0; i < counterSigs.getLength(); i++) {
-
 			Element counterSigEl = (Element) counterSigs.item(i);
 			Element signatureEl = DSSXMLUtils.getElement(counterSigEl, xPathQueryHolder.XPATH__SIGNATURE);
 
 			// Verify that the element is a proper signature by trying to build a XAdESSignature out of it
 			XAdESSignature xCounterSig = new XAdESSignature(signatureEl, xPathQueryHolders, certPool);
 
-            /*
-             * Verify that there is a ds:Reference element with a Type set to:
-             * http://uri.etsi.org/01903#CountersignedSignature (as per the XAdES spec)
-             */
-/*
-                XMLSignatureFactory factory = XMLSignatureFactory.getInstance("DOM");
-                XMLSignature signature = factory.unmarshalXMLSignature(new DOMStructure(signatureEl));
-
-                LOG.info("Verifying countersignature References");
-                for (Object refobj : signature.getSignedInfo().getReferences()) {
-
-                    Reference ref = (Reference) refobj;
-                    if (ref.getType() != null && ref.getType().equals(xPathQueryHolder.XADES_COUNTERSIGNED_SIGNATURE)) {
-
-                        // Ok, this seems to be a CounterSignature
-                        // Verify that the digest is that of the signature value
-                        CertificateToken certToken = xCounterSig.getSigningCertificateToken();
-                        PublicKey publicKey = certToken.getCertificate().getPublicKey();
-                        if (ref.validate(new DOMValidateContext(publicKey, DSSXMLUtils.getElement(signatureElement, xPathQueryHolder.XPATH_SIGNATURE_VALUE)))) {
-
-                            LOG.info("Reference verification succeeded, adding countersignature");
-                            xadesList.add(xCounterSig);
-                        } else {
-
-                            LOG.warn("Skipping countersignature because the Reference doesn't contain a hash of the embedding SignatureValue");
-                        }
-                        break;
-                    }
-                }
-*/
+			if (isCounterSignature(xCounterSig)) {
+				xadesList.add(xCounterSig);
+			}
 		}
 		return xadesList;
-/*        } catch (MarshalException e) {
+	}
 
-            throw new DSSEncodingException(MSG.COUNTERSIGNATURE_ENCODING, e);
-        } catch (XMLSignatureException e) {
+	/**
+	 * This method verifies whether a given signature is a countersignature.
+	 * <p/>
+	 * From ETSI TS 101 903 V1.4.2:
+	 * - The signature's ds:SignedInfo element MUST contain one ds:Reference element referencing the
+	 * ds:Signature element of the embedding and countersigned XAdES signature
+	 * - The content of the ds:DigestValue in the aforementioned ds:Reference element  of the countersignature
+	 * MUST be the base-64 encoded digest of the complete (and canonicalized) ds:SignatureValue element (i.e.
+	 * including the starting and closing tags) of the embedding and countersigned XAdES signature.
+	 *
+	 * @param xCounterSig
+	 * @return
+	 */
+	private boolean isCounterSignature(XAdESSignature xCounterSig) {
 
-            throw new DSSEncodingException(MSG.COUNTERSIGNATURE_ENCODING, e);
-        }
-*/
+		List<Element> signatureReferences = xCounterSig.getSignatureReferences();
+		if (signatureReferences.size() < 1) {
+			return false;
+		}
+
+		Element countersignedSignatureReference = null;
+		//gets Element with Type="http://uri.etsi.org/01903#CountersignedSignature"
+		for (Element reference : signatureReferences) {
+			if (xPathQueryHolder.XADES_COUNTERSIGNED_SIGNATURE.equals(reference.getAttribute("Type"))) {
+				countersignedSignatureReference = reference;
+			}
+		}
+
+		if (countersignedSignatureReference == null) {
+			return false;
+		}
+
+		//checks whether the countersignature has a DigestValue element
+		NodeList subNodes = countersignedSignatureReference.getElementsByTagName(xPathQueryHolder.XPATH__DIGEST_VALUE);
+		if (subNodes.getLength() > 1 || subNodes.getLength() < 1) {
+			return false;
+		}
+
+		return true;
 	}
 
 	@Override
@@ -2041,6 +2044,8 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 	}
 
 	/**
+	 * // TODO (11/09/2014): to be deleted, eu.europa.ec.markt.dss.validation102853.xades.XAdESSignature#getReferences() to be used
+	 *
 	 * @return
 	 */
 	public List<Element> getSignatureReferences() {
@@ -2052,6 +2057,10 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 			final Node node = list.item(ii);
 			references.add((Element) node);
 		}
+		return references;
+	}
+
+	public List<Reference> getReferences() {
 		return references;
 	}
 
@@ -2073,5 +2082,27 @@ public class XAdESSignature extends DefaultAdvancedSignature {
 			references.add(element);
 		}
 		return references;
+	}
+
+	public void addXPathQueryHolder(XPathQueryHolder xPathQueryHolder) {
+		xPathQueryHolders.add(xPathQueryHolder);
+	}
+
+	public Element getUnsignedSignaturePropertiesDom() {
+
+		final Element unsignedSignaturePropertiesDom = DSSXMLUtils.getElement(signatureElement, xPathQueryHolder.XPATH_UNSIGNED_SIGNATURE_PROPERTIES);
+		return unsignedSignaturePropertiesDom;
+	}
+
+	public Element getUnsignedPropertiesDom() {
+
+		final Element unsignedPropertiesDom = DSSXMLUtils.getElement(signatureElement, xPathQueryHolder.XPATH_UNSIGNED_PROPERTIES);
+		return unsignedPropertiesDom;
+	}
+
+	public Element getQualifyingPropertiesDom() {
+
+		final Element qualifyingPropertiesDom = DSSXMLUtils.getElement(signatureElement, xPathQueryHolder.XPATH_QUALIFYING_PROPERTIES);
+		return qualifyingPropertiesDom;
 	}
 }

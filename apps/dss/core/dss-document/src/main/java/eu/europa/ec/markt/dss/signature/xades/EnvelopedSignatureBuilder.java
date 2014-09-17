@@ -20,6 +20,7 @@
 
 package eu.europa.ec.markt.dss.signature.xades;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.xml.crypto.dsig.CanonicalizationMethod;
@@ -33,7 +34,6 @@ import org.w3c.dom.Text;
 
 import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.DSSXMLUtils;
-import eu.europa.ec.markt.dss.DigestAlgorithm;
 import eu.europa.ec.markt.dss.EncryptionAlgorithm;
 import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.parameter.DSSReference;
@@ -42,6 +42,7 @@ import eu.europa.ec.markt.dss.parameter.SignatureParameters;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
 import eu.europa.ec.markt.dss.signature.DSSSignatureUtils;
 import eu.europa.ec.markt.dss.signature.InMemoryDocument;
+import eu.europa.ec.markt.dss.signature.MimeType;
 import eu.europa.ec.markt.dss.validation102853.xades.XPathQueryHolder;
 
 /**
@@ -68,53 +69,97 @@ class EnvelopedSignatureBuilder extends SignatureBuilder {
 	}
 
 	/**
-	 * This method creates the first reference (this is a reference to the file to be signed) witch is specific for each form of signature. Here, the value of the URI is set to
-	 * http://www.w3.org/TR/1999/REC-xpath-19991116 (XPath recommendation) which means that an XPath-expression must be used to select a defined subset of the document tree.
+	 * {@inheritDoc}
+	 * Per default the value of the URI is set to http://www.w3.org/TR/1999/REC-xpath-19991116 (XPath recommendation) which means that an XPath-expression must be used to select a
+	 * defined subset of the document tree.
 	 */
 	@Override
 	protected void incorporateReference1() throws DSSException {
 
 		final List<DSSReference> references = params.getReferences();
-		final DSSReference reference = references.get(0);
+		for (final DSSReference reference : references) {
 
-		// <ds:Reference Id="xml_ref_id" URI="">
-		final Element referenceDom = DSSXMLUtils.addElement(documentDom, signedInfoDom, XMLSignature.XMLNS, "ds:Reference");
-		referenceDom.setAttribute("Id", reference.getId());
-		referenceDom.setAttribute("URI", reference.getUri());
-
-		final Element transformsDom = DSSXMLUtils.addElement(documentDom, referenceDom, XMLSignature.XMLNS, "ds:Transforms");
-
-		final List<DSSTransform> transforms = reference.getTransforms();
-		for (final DSSTransform transform : transforms) {
-
-			final Element transformDom = DSSXMLUtils.addElement(documentDom, transformsDom, XMLSignature.XMLNS, "ds:Transform");
-			transformDom.setAttribute("Algorithm", transform.getAlgorithm());
-			final String elementName = transform.getElementName();
-			if (elementName != null && !elementName.isEmpty()) {
-
-				final String namespace = transform.getNamespace();
-				final String textContent = transform.getTextContent();
-				DSSXMLUtils.addTextElement(documentDom, transformDom, namespace, elementName, textContent);
-			}
+			incorporateReference(reference);
 		}
-		// <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
-		final DigestAlgorithm digestAlgorithm = params.getDigestAlgorithm();
-		incorporateDigestMethod(referenceDom, digestAlgorithm);
+	}
 
-		// We remove existing signatures
-		final Document domDoc = DSSXMLUtils.buildDOM(originalDocument);
+	@Override
+	protected List<DSSReference> createDefaultReferences() {
+
+		final List<DSSReference> references = new ArrayList<DSSReference>();
+
+		DSSReference dssReference = new DSSReference();
+		dssReference.setId("r-id-1");
+		dssReference.setUri("");
+		dssReference.setContents(detachedDocument);
+		dssReference.setDigestMethodAlgorithm(params.getDigestAlgorithm());
+
+		final List<DSSTransform> dssTransformList = new ArrayList<DSSTransform>();
+
+		DSSTransform dssTransform = new DSSTransform();
+		dssTransform.setAlgorithm(CanonicalizationMethod.ENVELOPED);
+		dssTransformList.add(dssTransform);
+
+		dssTransform = new DSSTransform();
+		dssTransform.setAlgorithm(CanonicalizationMethod.EXCLUSIVE);
+		dssTransformList.add(dssTransform);
+
+		// For double signatures
+		dssTransform = new DSSTransform();
+		dssTransform.setAlgorithm(HTTP_WWW_W3_ORG_TR_1999_REC_XPATH_19991116);
+		dssTransform.setElementName(DS_XPATH);
+		dssTransform.setNamespace(XMLSignature.XMLNS);
+		dssTransform.setTextContent("not(ancestor-or-self::ds:Signature)");
+		dssTransformList.add(dssTransform);
+		dssReference.setTransforms(dssTransformList);
+
+		references.add(dssReference);
+
+		return references;
+	}
+
+	@Override
+	protected MimeType getReferenceMimeType(final DSSReference reference) {
+
+		return MimeType.XML;
+	}
+
+	@Override
+	protected DSSDocument canonicalizeReference(final DSSReference reference) {
+
+		final Document domDoc = DSSXMLUtils.buildDOM(reference.getContents());
+		if (!(this instanceof CounterSignatureBuilder)) {
+			removeExistingSignatures(domDoc);
+		}
+
+		byte[] canonicalizedBytes;
+		final String uri = reference.getUri();
+		if (DSSUtils.isNotBlank(uri) && uri.startsWith("#")) {
+
+			final String uri_id = uri.substring(1);
+			DSSXMLUtils.recursiveIdBrowse(domDoc.getDocumentElement());
+			final Element elementById = domDoc.getElementById(uri_id);
+			canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, elementById);
+		} else {
+
+			canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, domDoc);
+		}
+		return new InMemoryDocument(canonicalizedBytes);
+	}
+
+	/**
+	 * In case of the enveloped signature the existing signatures are removed
+	 *
+	 * @param domDoc {@code Document} containing the signatures to analyse
+	 */
+	protected void removeExistingSignatures(final Document domDoc) {
+
 		final NodeList signatureNodeList = domDoc.getElementsByTagNameNS(XMLSignature.XMLNS, XPathQueryHolder.XMLE_SIGNATURE);
 		for (int ii = 0; ii < signatureNodeList.getLength(); ii++) {
 
 			final Element signatureDOM = (Element) signatureNodeList.item(ii);
 			signatureDOM.getParentNode().removeChild(signatureDOM);
 		}
-		byte[] canonicalizedBytes = DSSXMLUtils.canonicalizeSubtree(signedInfoCanonicalizationMethod, domDoc);
-		if (LOG.isTraceEnabled()) {
-			LOG.trace("Canonicalization method  -->" + signedInfoCanonicalizationMethod);
-			LOG.trace("Canonicalized REF_1      --> " + new String(canonicalizedBytes));
-		}
-		incorporateDigestValue(referenceDom, digestAlgorithm, new InMemoryDocument(canonicalizedBytes));
 	}
 
 	/**
@@ -137,30 +182,16 @@ class EnvelopedSignatureBuilder extends SignatureBuilder {
 		final Text signatureValueNode = documentDom.createTextNode(signatureValueBase64Encoded);
 		signatureValueDom.appendChild(signatureValueNode);
 
-		final Document originalDocumentDom = DSSXMLUtils.buildDOM(originalDocument);
-
+		final Document originalDocumentDom = DSSXMLUtils.buildDOM(detachedDocument);
 		final Node copiedNode = originalDocumentDom.importNode(signatureDom, true);
-		originalDocumentDom.getDocumentElement().appendChild(copiedNode);
+
+		if (params.getXPathLocationString() != null) {
+			DSSXMLUtils.getElement(originalDocumentDom, params.getXPathLocationString()).appendChild(copiedNode);
+		} else {
+			originalDocumentDom.getDocumentElement().appendChild(copiedNode);
+		}
 
 		byte[] documentBytes = DSSXMLUtils.transformDomToByteArray(originalDocumentDom);
 		return new InMemoryDocument(documentBytes);
-	}
-
-	/**
-	 * This method returns data format reference specific for enveloped signature.
-	 */
-	@Override
-	protected String getDataObjectFormatObjectReference() {
-
-		return "#xml_ref_id";
-	}
-
-	/**
-	 * This method returns data format mime type specific for enveloped signature.
-	 */
-	@Override
-	protected String getDataObjectFormatMimeType() {
-
-		return "text/xml";
 	}
 }

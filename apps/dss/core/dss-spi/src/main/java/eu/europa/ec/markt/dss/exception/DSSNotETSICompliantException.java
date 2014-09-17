@@ -25,7 +25,7 @@ import java.util.ResourceBundle;
 /**
  * Occurs when something don't respect the ETSI specification
  *
- * @version $Revision: 3113 $ - $Date: 2013-12-04 16:00:22 +0100 (Wed, 04 Dec 2013) $
+ * @version $Revision$ - $Date$
  */
 
 public class DSSNotETSICompliantException extends RuntimeException {
@@ -45,7 +45,7 @@ public class DSSNotETSICompliantException extends RuntimeException {
      * Supported messages
      */
     public enum MSG {
-        TSL_NOT_SIGNED, MORE_THAN_ONE_SIGNATURE, SIGNATURE_INVALID, NOT_A_VALID_XML,
+        TSL_NOT_SIGNED, MORE_THAN_ONE_SIGNATURE, DIFFERENT_SIGNATURE_FORMATS, SIGNATURE_INVALID, NOT_A_VALID_XML,
 
         UNRECOGNIZED_TAG, UNSUPPORTED_ASSERT,
 

@@ -35,7 +35,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateToken;
  * TrustedListsCertificateSource} class is used. This list is refreshed when the method refresh
  * is called.
  *
- * @version $Revision: 3573 $ - $Date: 2014-03-07 06:56:00 +0100 (Fri, 07 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class ReloadableTrustedListCertificateSource extends TrustedListsCertificateSource {

@@ -36,7 +36,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Wrapper of a PrivateKeyEntry coming from a KeyStore.
  *
- * @version $Revision: 3796 $ - $Date: 2014-04-24 21:41:17 +0200 (Thu, 24 Apr 2014) $
+ * @version $Revision$ - $Date$
  */
 public class KSPrivateKeyEntry implements DSSPrivateKeyEntry {
 

@@ -39,7 +39,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Class holding all MS CAPI API access logic.
  *
- * @version $Revision: 3408 $ - $Date: 2014-02-04 10:39:31 +0100 (Tue, 04 Feb 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class MSCAPISignatureToken extends AbstractSignatureTokenConnection {

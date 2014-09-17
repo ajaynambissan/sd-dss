@@ -20,15 +20,11 @@
 
 package eu.europa.ec.markt.dss.signature.timestamp;
 
-import java.io.ByteArrayOutputStream;
-
 import javax.xml.crypto.dsig.CanonicalizationMethod;
 
 import org.bouncycastle.tsp.TimeStampToken;
 
-import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.DigestAlgorithm;
-import eu.europa.ec.markt.dss.parameter.ContentTimestampReference;
 import eu.europa.ec.markt.dss.parameter.TimestampParameters;
 import eu.europa.ec.markt.dss.validation102853.CertificatePool;
 import eu.europa.ec.markt.dss.validation102853.TimestampToken;
@@ -128,70 +124,11 @@ public class ContentTimestampGenerator {
 	 * @param timestampType
 	 * @return
 	 */
-	public TimestampToken generateTimestampToken(final TimestampType timestampType, final DigestAlgorithm digestAlgorithm, final byte[] digest) {
+	public TimestampToken generateTimestampToken(final TimestampType timestampType, final DigestAlgorithm digestAlgorithm, final byte[] references) {
 
-		final TimeStampToken timeStampResponse = tspSource.getTimeStampResponse(digestAlgorithm, digest);
+		final TimeStampToken timeStampResponse = tspSource.getTimeStampResponse(digestAlgorithm, references);
 		TimestampToken token = new TimestampToken(timeStampResponse, timestampType, certificatePool);
 		return token;
 	}
 
-	//1. getInfo().getReferences()
-	//2. for each node in getReferences() -> if node is nodeset, canonicalize it according to either ds:Canonicalization, or
-	//   canonicalization method specified in xmldsig
-	//3. concatenate resulting octets in byte stream
-	//4. pass resulting octet stream to timestamptoken creation method, specifying timestamptype.ALLDATA.. or timestamptype.INDIV as type
-	public TimestampToken generateAllDataObjectsTimestamp(final TimestampParameters parameters) {
-
-		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		String canonicalizationMethod = parameters.getCanonicalizationMethod();
-		if (canonicalizationMethod == null) {
-			canonicalizationMethod = DEFAULT_TIMESTAMP_CREATION_CANONICALIZATION_METHOD;
-		}
-
-		final DigestAlgorithm digestAlgorithm = parameters.getDigestAlgorithm();
-		byte[] digest = parameters.getDigest();
-		if (digest == null) {
-
-			for (final ContentTimestampReference reference : parameters.getReferences()) {
-
-				DSSUtils.write(reference.getData(), buffer);
-			}
-			digest = DSSUtils.digest(digestAlgorithm, buffer.toByteArray());
-		}
-		final TimestampToken token = generateTimestampToken(TimestampType.ALL_DATA_OBJECTS_TIMESTAMP, digestAlgorithm, digest);
-		return token;
-	}
-
-	public TimestampToken generateIndividualDataObjectsTimestamp(final TimestampParameters parameters) {
-
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		String canonicalizationMethod = parameters.getCanonicalizationMethod();
-		if (canonicalizationMethod == null) {
-			canonicalizationMethod = DEFAULT_TIMESTAMP_CREATION_CANONICALIZATION_METHOD;
-		}
-		final DigestAlgorithm digestAlgorithm = parameters.getDigestAlgorithm();
-		byte[] digest = parameters.getDigest();
-		if (digest == null) {
-
-			for (final ContentTimestampReference reference : parameters.getReferences()) {
-
-				DSSUtils.write(reference.getData(), buffer);
-			}
-			digest = DSSUtils.digest(digestAlgorithm, buffer.toByteArray());
-		}
-		final TimestampToken token = generateTimestampToken(TimestampType.INDIVIDUAL_DATA_OBJECTS_TIMESTAMP, digestAlgorithm, digest);
-		//token.setTimestampIncludes(parameters.getReferences());
-		return token;
-	}
-
-	public TimestampToken generateContentTimestamp(final TimestampParameters parameters) {
-
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-		final DigestAlgorithm digestAlgorithm = parameters.getDigestAlgorithm();
-		byte[] digest = parameters.getDigest();
-
-		final TimestampToken token = generateTimestampToken(TimestampType.CONTENT_TIMESTAMP, digestAlgorithm, digest);
-
-		return token;
-	}
 }

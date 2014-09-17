@@ -43,13 +43,13 @@ import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1Set;
 import org.bouncycastle.asn1.ASN1String;
 import org.bouncycastle.asn1.ASN1UTCTime;
-import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
@@ -209,23 +209,11 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 	}
 
 	/**
-	 * The default constructor for CAdESSignature.
-	 *
-	 * @param cms               CMSSignedData
-	 * @param signerInformation an expanded SignerInfo block from a CMS Signed message
-	 * @param certPool          can be null
-	 */
-	public CAdESSignature(final CMSSignedData cms, final SignerInformation signerInformation, final CertificatePool certPool) {
-		this(cms, signerInformation, certPool, null);
-	}
-
-	/**
 	 * @param cmsSignedData     CMSSignedData
 	 * @param signerInformation an expanded SignerInfo block from a CMS Signed message
-	 * @param detachedContent   the external signed content if detached signature
 	 */
-	public CAdESSignature(final CMSSignedData cmsSignedData, final SignerInformation signerInformation, final DSSDocument detachedContent) {
-		this(cmsSignedData, signerInformation, new CertificatePool(), detachedContent);
+	public CAdESSignature(final CMSSignedData cmsSignedData, final SignerInformation signerInformation) {
+		this(cmsSignedData, signerInformation, new CertificatePool());
 	}
 
 	/**
@@ -234,14 +222,12 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 	 * @param cmsSignedData     CMSSignedData
 	 * @param signerInformation an expanded SignerInfo block from a CMS Signed message
 	 * @param certPool          can be null
-	 * @param detachedContent   the external signed content if detached signature
 	 */
-	public CAdESSignature(final CMSSignedData cmsSignedData, final SignerInformation signerInformation, final CertificatePool certPool, final DSSDocument detachedContent) {
+	public CAdESSignature(final CMSSignedData cmsSignedData, final SignerInformation signerInformation, final CertificatePool certPool) {
 
 		super(certPool);
 		this.cmsSignedData = cmsSignedData;
 		this.signerInformation = signerInformation;
-		this.detachedContent = detachedContent;
 	}
 
 	/**
@@ -639,7 +625,7 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 				// must be ASN1UTCTime
 				if (!(attrValue instanceof ASN1UTCTime)) {
 					LOG.error(
-						  "RFC 3852 states that dates between January 1, 1950 and December 31, 2049 (inclusive) must be encoded as UTCTime. Any dates with year values before 1950 or after 2049 must be encoded as GeneralizedTime. Date found is %s encoded as %s",
+						  "RFC 3852 states that dates between January 1, 1950 and December 31, 2049 (inclusive) must be encoded as UTCTime. Any dates with year values before 1950 or after 2049 must be encoded as GeneralizedTime. Date found is {} encoded as {}",
 						  signingDate.toString(), attrValue.getClass());
 					return null;
 				}
@@ -745,20 +731,20 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 
 			return null;
 		}
-
-		Attribute commitmentTypeIndicationAttribute = attributes.get(PKCSObjectIdentifiers.id_aa_ets_commitmentType);
+		final Attribute commitmentTypeIndicationAttribute = attributes.get(PKCSObjectIdentifiers.id_aa_ets_commitmentType);
 		if (commitmentTypeIndicationAttribute != null) {
 
 			try {
-				final DERSequence derSequence = (DERSequence) commitmentTypeIndicationAttribute.getAttrValues().getObjectAt(0);
-				final int size = derSequence.size();
+
+				final ASN1Set attrValues = commitmentTypeIndicationAttribute.getAttrValues();
+				final int size = attrValues.size();
 				if (size > 0) {
 
-					CommitmentType commitmentType = new CommitmentType();
+					final CommitmentType commitmentType = new CommitmentType();
 					for (int ii = 0; ii < size; ii++) {
 
-						final ASN1Encodable objectAt = derSequence.getObjectAt(ii);
-						final CommitmentTypeIndication commitmentTypeIndication = CommitmentTypeIndication.getInstance(objectAt);
+						final DERSequence derSequence = (DERSequence) attrValues.getObjectAt(ii);
+						final CommitmentTypeIndication commitmentTypeIndication = CommitmentTypeIndication.getInstance(derSequence);
 						final ASN1ObjectIdentifier commitmentTypeId = commitmentTypeIndication.getCommitmentTypeId();
 						commitmentType.addIdentifier(commitmentTypeId.getId());
 					}
@@ -778,7 +764,6 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 		if (attributes == null) {
 			return null;
 		}
-
 		final Attribute id_aa_ets_signerAttr = attributes.get(PKCSObjectIdentifiers.id_aa_ets_signerAttr);
 		if (id_aa_ets_signerAttr == null) {
 			return null;
@@ -858,7 +843,6 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 
 						final ASN1Encodable objectAt = attributes.getObjectAt(ii);
 						final org.bouncycastle.asn1.x509.Attribute attribute = org.bouncycastle.asn1.x509.Attribute.getInstance(objectAt);
-						// System.out.println(attribute.getAttrType().getId());
 						final ASN1Set attrValues1 = attribute.getAttrValues();
 						DERSequence derSequence = (DERSequence) attrValues1.getObjectAt(0);
 						RoleSyntax roleSyntax = RoleSyntax.getInstance(derSequence);
@@ -1025,16 +1009,18 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 		try {
 
 			final SignerInformation signerInformationToCheck;
-			if (detachedContent == null) {
+			if (detachedContents == null || detachedContents.size() == 0) {
 				signerInformationToCheck = signerInformation;
 			} else {
 				// Recreate a SignerInformation with the content using a CMSSignedDataParser
-				final CMSTypedStream signedContent = new CMSTypedStream(detachedContent.openStream());
+				final DSSDocument dssDocument = detachedContents.get(0); // only one element for CAdES Signature
+				final CMSTypedStream signedContent = new CMSTypedStream(dssDocument.openStream());
 				final CMSSignedDataParser sp = new CMSSignedDataParser(new BcDigestCalculatorProvider(), signedContent, cmsSignedData.getEncoded());
 				sp.getSignedContent().drain();
 				final SignerId sid = signerInformation.getSID();
 				signerInformationToCheck = sp.getSignerInfos().get(sid);
 			}
+
 			final List<SigningCertificateValidity> signingCertificateValidityList;
 			if (providedSigningCertificateToken == null) {
 
@@ -1070,7 +1056,6 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 					// TODO: (Bob: 2013 Dec 06) The BC does not implement if way indicated in ETSI 102853 the validation of the signature. Each time a problem is encountered an exception
 					// TODO: (Bob: 2013 Dec 06) is raised. Solution extract the BC method and adapt.
 					LOG.debug(" - WITH SIGNING CERTIFICATE: " + certificateToken.getAbbreviation());
-
 					boolean signatureIntact = signerInformationToCheck.verify(signerInformationVerifier);
 					signatureCryptographicVerification.setReferenceDataFound(signatureIntact);
 					signatureCryptographicVerification.setReferenceDataIntact(signatureIntact);
@@ -1233,7 +1218,7 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 				if (issuerName != null) {
 					certId.setIssuerName(issuerName.toString());
 				}
-				final DERInteger issuerSerial = issuer.getSerial();
+				final ASN1Integer issuerSerial = issuer.getSerial();
 				if (issuerSerial != null) {
 					certId.setIssuerSerial(issuerSerial.toString());
 				}
@@ -1438,8 +1423,11 @@ public class CAdESSignature extends DefaultAdvancedSignature {
 				throw new DSSException(e);
 			}
 		} else {
-			// TODO (14/07/2014): detachedContent can be null!
-			return detachedContent.getBytes();
+			if (detachedContents != null && detachedContents.size() > 0) {
+
+				return detachedContents.get(0).getBytes();
+			}
+			return DSSUtils.EMPTY_BYTE_ARRAY;
 		}
 	}
 

@@ -26,7 +26,7 @@ package eu.europa.ec.markt.dss.dao;
  * <p>
  * DISCLAIMER: Project owner DG-MARKT.
  * 
- * @version $Revision: 2815 $ - $Date: 2013-10-28 15:38:50 +0100 (Mon, 28 Oct 2013) $
+ * @version $Revision$ - $Date$
  * @author <a href="mailto:dgmarkt.Project-DSS@arhs-developments.com">ARHS Developments</a>
  */
 public class ProxyDaoException extends RuntimeException {

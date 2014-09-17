@@ -28,7 +28,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Supported signature encryption algorithms.
  *
- * @version $Revision: 3775 $ - $Date: 2014-04-21 15:32:12 +0200 (Mon, 21 Apr 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public enum EncryptionAlgorithm {

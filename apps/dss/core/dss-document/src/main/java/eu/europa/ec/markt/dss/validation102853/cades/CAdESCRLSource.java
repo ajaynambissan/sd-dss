@@ -45,7 +45,7 @@ import eu.europa.ec.markt.dss.validation102853.crl.OfflineCRLSource;
 /**
  * CRLSource that retrieves information from a CAdES signature.
  *
- * @version $Revision: 3564 $ - $Date: 2014-03-06 16:19:24 +0100 (Thu, 06 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class CAdESCRLSource extends OfflineCRLSource {

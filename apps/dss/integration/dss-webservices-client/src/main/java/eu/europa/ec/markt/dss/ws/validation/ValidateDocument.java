@@ -17,7 +17,7 @@ import javax.xml.bind.annotation.XmlType;
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
  *         &lt;element name="document" type="{http://ws.dss.markt.ec.europa.eu/}wsDocument" minOccurs="0"/>
- *         &lt;element name="externalContent" type="{http://ws.dss.markt.ec.europa.eu/}wsDocument" minOccurs="0"/>
+ *         &lt;element name="detachedContent" type="{http://ws.dss.markt.ec.europa.eu/}wsDocument" minOccurs="0"/>
  *         &lt;element name="policy" type="{http://ws.dss.markt.ec.europa.eu/}wsDocument" minOccurs="0"/>
  *         &lt;element name="diagnosticDataToBeReturned" type="{http://www.w3.org/2001/XMLSchema}boolean"/>
  *       &lt;/sequence>
@@ -31,14 +31,14 @@ import javax.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "validateDocument", propOrder = {
     "document",
-    "externalContent",
+    "detachedContent",
     "policy",
     "diagnosticDataToBeReturned"
 })
 public class ValidateDocument {
 
     protected WsDocument document;
-    protected WsDocument externalContent;
+    protected WsDocument detachedContent;
     protected WsDocument policy;
     protected boolean diagnosticDataToBeReturned;
 
@@ -67,27 +67,27 @@ public class ValidateDocument {
     }
 
     /**
-     * Gets the value of the externalContent property.
+     * Gets the value of the detachedContent property.
      * 
      * @return
      *     possible object is
      *     {@link WsDocument }
      *     
      */
-    public WsDocument getExternalContent() {
-        return externalContent;
+    public WsDocument getDetachedContent() {
+        return detachedContent;
     }
 
     /**
-     * Sets the value of the externalContent property.
+     * Sets the value of the detachedContent property.
      * 
      * @param value
      *     allowed object is
      *     {@link WsDocument }
      *     
      */
-    public void setExternalContent(WsDocument value) {
-        this.externalContent = value;
+    public void setDetachedContent(WsDocument value) {
+        this.detachedContent = value;
     }
 
     /**

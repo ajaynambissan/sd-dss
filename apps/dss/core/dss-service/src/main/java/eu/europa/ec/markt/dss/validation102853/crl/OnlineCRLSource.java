@@ -51,7 +51,7 @@ import eu.europa.ec.markt.dss.validation102853.loader.Protocol;
  * Note that for the HTTP kind of URLs you can provide dedicated data loader. If the data loader is not provided the standard load from URI is
  * provided. For FTP the standard load from URI is provided. For LDAP kind of URLs an internal implementation using apache-ldap-api is provided.
  *
- * @version $Revision: 4213 $ - $Date: 2014-07-08 14:15:06 +0200 (Tue, 08 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class OnlineCRLSource extends CommonCRLSource {

@@ -23,7 +23,7 @@ package eu.europa.ec.markt.dss.common;
 /**
  * Type of API supported by the application
  *
- * @version $Revision: 2815 $ - $Date: 2013-10-28 15:38:50 +0100 (Mon, 28 Oct 2013) $
+ * @version $Revision$ - $Date$
  */
 
 public enum SignatureTokenType {

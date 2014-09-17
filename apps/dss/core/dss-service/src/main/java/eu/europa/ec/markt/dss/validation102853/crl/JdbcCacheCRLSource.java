@@ -37,7 +37,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateToken;
 /**
  * CRLSource that retrieve information from a JDBC datasource
  *
- * @version $Revision: 4264 $ - $Date: 2014-07-14 17:21:17 +0200 (Mon, 14 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class JdbcCacheCRLSource extends CommonCRLSource {

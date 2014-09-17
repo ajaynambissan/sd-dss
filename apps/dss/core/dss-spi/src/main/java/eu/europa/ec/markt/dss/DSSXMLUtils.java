@@ -72,6 +72,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import eu.europa.ec.markt.dss.exception.DSSException;
+import eu.europa.ec.markt.dss.exception.DSSNullException;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
 
 /**
@@ -796,6 +797,33 @@ public final class DSSXMLUtils {
 			return xmlGregorianCalendar.toGregorianCalendar().getTime();
 		} catch (DatatypeConfigurationException e) {
 			// do nothing
+		}
+		return null;
+	}
+
+	/**
+	 * This method retrieves an element based on its ID
+	 *
+	 * @param currentDom the DOM in which the element has to be retrieved
+	 * @param elementId the specified ID
+	 * @param namespace the namespace to take into account
+	 * @param tagName the tagName of the element to find
+	 * @return the
+	 * @throws DSSNullException
+	 */
+	public static Element getElementById (Document currentDom, String elementId, String namespace, String tagName) throws DSSNullException {
+
+		Element element = null;
+		NodeList nodes = currentDom.getElementsByTagNameNS(namespace, tagName);
+
+		for (int i = 0; i < nodes.getLength(); i++) {
+			element = (Element) nodes.item(i);
+			if (elementId.equals(DSSXMLUtils.getIDIdentifier(element))) {
+				return element;
+			}
+		}
+		if (element == null) {
+			throw new DSSNullException(Element.class);
 		}
 		return null;
 	}

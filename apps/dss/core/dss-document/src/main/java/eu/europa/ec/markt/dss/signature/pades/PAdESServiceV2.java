@@ -27,7 +27,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateVerifier;
  *
  * PAdES implementation of the DocumentSignatureService
  *
- * @version $Revision: 3574 $ - $Date: 2014-03-07 16:14:50 +0100 (Fri, 07 Mar 2014) $
+ * @version $Revision$ - $Date$
  * @deprecated use {@code PAdESService} instead
  */
 @Deprecated

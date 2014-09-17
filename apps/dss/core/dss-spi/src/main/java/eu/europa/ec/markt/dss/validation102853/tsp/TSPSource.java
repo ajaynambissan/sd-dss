@@ -29,7 +29,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
  * Abstraction of a Time Stamping authority which delivers RFC 3161 Time Stamp Responses containing tokens, from Time
  * Stamp Requests.
  *
- * @version $Revision: 3564 $ - $Date: 2014-03-06 16:19:24 +0100 (Thu, 06 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public interface TSPSource {

@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>eu.europa.ec.joinup.sd-dss</groupId>
 		<artifactId>sd-dss-app</artifactId>
-		<version>4.1.0</version>
+		<version>4.2.0-RC</version>
 		<relativePath>../..</relativePath>
 	</parent>
 
@@ -41,18 +41,18 @@
 								</artifactItem>
 								<artifactItem>
 									<groupId>org.bouncycastle</groupId>
-									<artifactId>bcprov-ext-jdk15on</artifactId>
+									<artifactId>bcprov-jdk15on</artifactId>
 									<type>jar</type>
 									<outputDirectory>${project.build.directory}/${project.artifactId}-${project.version}</outputDirectory>
-									<destFileName>/jar/bcprov-ext-jdk15on.jar</destFileName>
+									<destFileName>/jar/bcprov-jdk15on.jar</destFileName>
 								</artifactItem>
-								<artifactItem>
-									<groupId>org.bouncycastle</groupId>
-									<artifactId>bcpkix-jdk15on</artifactId>
-									<type>jar</type>
-									<outputDirectory>${project.build.directory}/${project.artifactId}-${project.version}</outputDirectory>
-									<destFileName>/jar/bcpkix-jdk15on</destFileName>
-								</artifactItem>
+								<!--<artifactItem>-->
+								<!--<groupId>org.bouncycastle</groupId>-->
+								<!--<artifactId>bcpkix-jdk15on</artifactId>-->
+								<!--<type>jar</type>-->
+								<!--<outputDirectory>${project.build.directory}/${project.artifactId}-${project.version}</outputDirectory>-->
+								<!--<destFileName>/jar/bcpkix-jdk15on</destFileName>-->
+								<!--</artifactItem>-->
 								<artifactItem>
 									<groupId>org.bouncycastle</groupId>
 									<artifactId>bcmail-jdk15on</artifactId>
@@ -251,6 +251,5 @@
 			<version>5.0.1.Final</version>
 		</dependency>
 	</dependencies>
-
 
 </project>

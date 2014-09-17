@@ -36,35 +36,35 @@ public class ObjectFactory {
     }
 
     /**
-     * Create an instance of {@link DSSException }
-     * 
-     */
-    public DSSException createDSSException() {
-        return new DSSException();
-    }
-
-    /**
-     * Create an instance of {@link ValidateDocumentResponse }
-     * 
-     */
-    public ValidateDocumentResponse createValidateDocumentResponse() {
-        return new ValidateDocumentResponse();
-    }
-
-    /**
      * Create an instance of {@link WsValidationReport }
-     * 
+     *
      */
     public WsValidationReport createWsValidationReport() {
         return new WsValidationReport();
     }
 
     /**
+     * Create an instance of {@link ValidateDocumentResponse }
+     *
+     */
+    public ValidateDocumentResponse createValidateDocumentResponse() {
+        return new ValidateDocumentResponse();
+    }
+
+    /**
      * Create an instance of {@link WsDocument }
-     * 
+     *
      */
     public WsDocument createWsDocument() {
         return new WsDocument();
+    }
+
+    /**
+     * Create an instance of {@link DSSException }
+     *
+     */
+    public DSSException createDSSException() {
+        return new DSSException();
     }
 
     /**

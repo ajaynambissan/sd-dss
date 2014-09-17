@@ -27,7 +27,7 @@ import eu.europa.ec.markt.dss.exception.DSSCannotFetchDataException;
 /**
  * Component that allows to retrieve the data using any protocol: HTTP, HTTPS, FTP, LDAP.
  *
- * @version $Revision: 4209 $ - $Date: 2014-07-08 09:29:30 +0200 (Tue, 08 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public interface DataLoader extends Serializable {

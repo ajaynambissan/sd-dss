@@ -20,10 +20,16 @@
 
 package eu.europa.ec.markt.dss.signature.xades;
 
+import java.util.List;
+
 import org.apache.xml.security.Init;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
+import eu.europa.ec.markt.dss.DSSUtils;
+import eu.europa.ec.markt.dss.DSSXMLUtils;
 import eu.europa.ec.markt.dss.DigestAlgorithm;
 import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.exception.DSSNullException;
@@ -37,12 +43,16 @@ import eu.europa.ec.markt.dss.signature.SignatureLevel;
 import eu.europa.ec.markt.dss.signature.SignaturePackaging;
 import eu.europa.ec.markt.dss.signature.token.DSSPrivateKeyEntry;
 import eu.europa.ec.markt.dss.signature.token.SignatureTokenConnection;
+import eu.europa.ec.markt.dss.validation102853.AdvancedSignature;
 import eu.europa.ec.markt.dss.validation102853.CertificateVerifier;
+import eu.europa.ec.markt.dss.validation102853.SignedDocumentValidator;
+import eu.europa.ec.markt.dss.validation102853.xades.XAdESSignature;
+import eu.europa.ec.markt.dss.validation102853.xades.XMLDocumentValidator;
 
 /**
  * XAdES implementation of DocumentSignatureService
  *
- * @version $Revision: 4324 $ - $Date: 2014-07-16 09:35:52 +0200 (Wed, 16 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class XAdESService extends AbstractSignatureService {
@@ -145,6 +155,71 @@ public class XAdESService extends AbstractSignatureService {
 			return dssDocument;
 		}
 		throw new DSSException("Cannot extend to " + parameters.getSignatureLevel().name());
+	}
+
+	public DSSDocument counterSignDocument(final DSSDocument toCounterSignDocument, final SignatureParameters parameters) throws DSSException {
+
+		if (toCounterSignDocument == null) {
+			throw new DSSNullException(DSSDocument.class, "toCounterSignDocument");
+		}
+		if (parameters == null) {
+
+			throw new DSSNullException(SignatureParameters.class);
+		}
+		if (parameters.getSignatureLevel() == null) {
+			throw new DSSNullException(SignatureLevel.class);
+		}
+		final SignatureTokenConnection signingToken = parameters.getSigningToken();
+		if (signingToken == null) {
+			throw new DSSNullException(SignatureTokenConnection.class);
+		}
+
+		final SignedDocumentValidator validator = SignedDocumentValidator.fromDocument(toCounterSignDocument);
+		if (!(validator instanceof XMLDocumentValidator)) {
+			throw new DSSException("Incompatible signature form!");
+		}
+		final String toCounterSignSignatureId = parameters.getToCounterSignSignatureId();
+		if (DSSUtils.isBlank(toCounterSignSignatureId)) {
+			throw new DSSException("There is no provided signature id to countersign!");
+		}
+		final List<AdvancedSignature> signatures = validator.getSignatures();
+		XAdESSignature xadesSignature = null;
+		for (final AdvancedSignature signature_ : signatures) {
+
+			final String id = signature_.getId();
+			if (toCounterSignSignatureId.equals(id)) {
+
+				xadesSignature = (XAdESSignature) signature_;
+				break;
+			}
+		}
+		if (xadesSignature == null) {
+			throw new DSSException("The signature to countersign not found!");
+		}
+		final Node signatureValueNode = xadesSignature.getSignatureValue();
+		if (signatureValueNode == null) {
+			throw new DSSNullException(Node.class, "signature-value");
+		}
+		final String signatureValueId = DSSXMLUtils.getIDIdentifier((Element) signatureValueNode);
+		if (DSSUtils.isBlank(toCounterSignSignatureId)) {
+			throw new DSSException("There is no signature-value id to countersign!");
+		}
+		parameters.setToCounterSignSignatureValueId(signatureValueId);
+
+		final CounterSignatureBuilder counterSignatureBuilder = new CounterSignatureBuilder(toCounterSignDocument, xadesSignature, parameters);
+		final byte[] dataToSign = counterSignatureBuilder.build();
+
+		final DigestAlgorithm digestAlgorithm = parameters.getDigestAlgorithm();
+		final DSSPrivateKeyEntry dssPrivateKeyEntry = parameters.getPrivateKeyEntry();
+
+		byte[] counterSignatureValue = signingToken.sign(dataToSign, digestAlgorithm, dssPrivateKeyEntry);
+
+		final DSSDocument counterSignedDocument = counterSignatureBuilder.signDocument(counterSignatureValue);
+		//		final XMLDocumentValidator xmlDocumentValidator = (XMLDocumentValidator) validator;
+		//		final Document rootElement = xmlDocumentValidator.getRootElement();
+		//		final byte[] bytes = DSSXMLUtils.transformDomToByteArray(rootElement);
+		//		final InMemoryDocument inMemoryDocument = new InMemoryDocument(bytes);
+		return counterSignedDocument;
 	}
 
 	/**

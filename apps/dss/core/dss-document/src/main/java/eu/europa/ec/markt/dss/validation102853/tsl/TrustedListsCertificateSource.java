@@ -57,6 +57,7 @@ import eu.europa.ec.markt.dss.validation102853.CommonTrustedCertificateSource;
 import eu.europa.ec.markt.dss.validation102853.certificate.CertificateSourceType;
 import eu.europa.ec.markt.dss.validation102853.condition.ServiceInfo;
 import eu.europa.ec.markt.dss.validation102853.loader.DataLoader;
+import eu.europa.ec.markt.dss.validation102853.report.Reports;
 import eu.europa.ec.markt.dss.validation102853.report.SimpleReport;
 import eu.europa.ec.markt.dss.validation102853.rules.Indication;
 import eu.europa.ec.markt.dss.validation102853.xades.XMLDocumentValidator;
@@ -212,7 +213,7 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	 * Gets the LOTL certificate as an inputStream stream
 	 *
 	 * @return the inputStream stream
-	 * @throws java.io.IOException
+	 * @throws DSSException
 	 */
 	private InputStream getLotlCertificateInputStream() throws DSSException {
 
@@ -241,12 +242,11 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	}
 
 	/**
-	 * Load a trusted list for the specified URL
+	 * Load a trusted list form the specified URL. If the {@code signingCertList} contains any {@code X509Certificate} then the validation of the signature of the TSL is done.
 	 *
-	 * @param url
-	 * @param signingCertList
-	 * @return
-	 * @throws java.io.IOException
+	 * @param url             of the TSL to load
+	 * @param signingCertList the {@code List} of the possible signing certificates
+	 * @return {@code TrustStatusList}
 	 */
 	private TrustStatusList getTrustStatusList(final String url, final List<X509Certificate> signingCertList) {
 
@@ -286,8 +286,8 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 					throw new DSSException("Not ETSI compliant signature. The Xml is not signed.");
 				}
 
-				xmlDocumentValidator.validateDocument();
-				final SimpleReport simpleReport = xmlDocumentValidator.getSimpleReport();
+				final Reports reports = xmlDocumentValidator.validateDocument();
+				final SimpleReport simpleReport = reports.getSimpleReport();
 				final List<String> signatureIdList = simpleReport.getSignatureIds();
 				final String signatureId = signatureIdList.get(0);
 				final String indication = simpleReport.getIndication(signatureId);
@@ -296,7 +296,7 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 				if (!coreValidity) {
 
 					LOG.info("The TSL signature validity details:\n" + simpleReport);
-					System.out.println(xmlDocumentValidator.getDiagnosticData());
+					//					System.out.println(reports.getDiagnosticData());
 					throw new DSSException("Not ETSI compliant signature. The signature is not valid.");
 				}
 			}
@@ -405,9 +405,21 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	}
 
 	/**
-	 * @param url
-	 * @param territory
-	 * @param signingCertList
+	 * This method allows to load any trusted list.
+	 *
+	 * @param url                 of the TSL to load
+	 * @param territory           of the TSL
+	 * @param signingCertificates the {@code List} of the possible signing certificates
+	 */
+	public void loadAdditionalList(final String url, final String territory, final List<X509Certificate> signingCertificates) {
+
+		loadTSL(url, territory, signingCertificates);
+	}
+
+	/**
+	 * @param url             of the TSL to load
+	 * @param territory       of the TSL
+	 * @param signingCertList the {@code List} of the possible signing certificates
 	 */
 	protected void loadTSL(final String url, final String territory, final List<X509Certificate> signingCertList) {
 
@@ -498,15 +510,17 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	 *
 	 * @param checkSignature the checkSignature to set
 	 */
-	public void setCheckSignature(boolean checkSignature) {
+	public void setCheckSignature(final boolean checkSignature) {
 
 		this.checkSignature = checkSignature;
 	}
 
 	/**
-	 * @param lotlCertificate the lotlCertificate to set
+	 * The path to the LOTL certificate can be provided in two manners by using {@code classpath://} or {@code file://} prefixes (Spring notation).
+	 *
+	 * @param lotlCertificate the path to the LOTL signing certificate to set
 	 */
-	public void setLotlCertificate(String lotlCertificate) {
+	public void setLotlCertificate(final String lotlCertificate) {
 
 		this.lotlCertificate = lotlCertificate;
 	}
@@ -516,7 +530,7 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	 *
 	 * @param lotlUrl the lotlUrl to set
 	 */
-	public void setLotlUrl(String lotlUrl) {
+	public void setLotlUrl(final String lotlUrl) {
 
 		this.lotlUrl = lotlUrl;
 	}
@@ -524,7 +538,7 @@ public class TrustedListsCertificateSource extends CommonTrustedCertificateSourc
 	/**
 	 * @param dataLoader the dataLoader to set
 	 */
-	public void setDataLoader(DataLoader dataLoader) {
+	public void setDataLoader(final DataLoader dataLoader) {
 
 		this.dataLoader = dataLoader;
 	}

@@ -28,7 +28,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.exception.DSSUnsupportedOperationException;
 
 /**
- * Digest representation of a {@code FileDocument}. It can be used to handle a large file to be signed.
+ * Digest representation of a {@code FileDocument}. It can be used to handle a large file to be signed. The computation of the digest associated to the file can be done externally.
  *
  * @version $Revision$ - $Date$
  */
@@ -38,7 +38,7 @@ public class DigestDocument extends FileDocument {
 	private HashMap<DigestAlgorithm, String> base64EncodeDigestMap = new HashMap<DigestAlgorithm, String>();
 
 	/**
-	 * Creates dss document that retains only the digest of the document.
+	 * Creates dss document from the path and for which the digest can be provided externally.
 	 *
 	 * @param path the path to the file
 	 */
@@ -48,7 +48,7 @@ public class DigestDocument extends FileDocument {
 	}
 
 	/**
-	 * Creates dss document that retains only the digest of the document.
+	 * Creates dss document from the {@code File} and for which the digest can be provided externally.
 	 *
 	 * @param file {@code File}
 	 */
@@ -64,8 +64,10 @@ public class DigestDocument extends FileDocument {
 	}
 
 	/**
-	 * @param digestAlgorithm
-	 * @param base64EncodeDigest
+	 * This method allows to add a pair: {@code DigestAlgorithm} and the corresponding digest value calculated externally on the encapsulated file. The digest value is base 64 encoded.
+	 *
+	 * @param digestAlgorithm {@code DigestAlgorithm}
+	 * @param base64EncodeDigest the corresponding base 64 encoded digest value
 	 */
 	public void addDigest(final DigestAlgorithm digestAlgorithm, final String base64EncodeDigest) {
 

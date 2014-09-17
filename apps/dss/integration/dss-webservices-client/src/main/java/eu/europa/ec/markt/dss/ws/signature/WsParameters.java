@@ -21,6 +21,9 @@ import javax.xml.datatype.XMLGregorianCalendar;
  *   &lt;complexContent>
  *     &lt;restriction base="{http://www.w3.org/2001/XMLSchema}anyType">
  *       &lt;sequence>
+ *         &lt;element name="asicMimeType" type="{http://www.w3.org/2001/XMLSchema}string" minOccurs="0"/>
+ *         &lt;element name="asicSignatureForm" type="{http://ws.dss.markt.ec.europa.eu/}signatureForm" minOccurs="0"/>
+ *         &lt;element name="asicZipComment" type="{http://www.w3.org/2001/XMLSchema}boolean"/>
  *         &lt;element name="certificateChainByteArrayList" type="{http://www.w3.org/2001/XMLSchema}base64Binary" maxOccurs="unbounded" minOccurs="0"/>
  *         &lt;element name="certifiedSignerRoles" type="{http://www.w3.org/2001/XMLSchema}string" maxOccurs="unbounded" minOccurs="0"/>
  *         &lt;element name="claimedSignerRole" type="{http://www.w3.org/2001/XMLSchema}string" maxOccurs="unbounded" minOccurs="0"/>
@@ -30,7 +33,8 @@ import javax.xml.datatype.XMLGregorianCalendar;
  *         &lt;element name="deterministicId" type="{http://www.w3.org/2001/XMLSchema}string" minOccurs="0"/>
  *         &lt;element name="digestAlgorithm" type="{http://ws.dss.markt.ec.europa.eu/}digestAlgorithm" minOccurs="0"/>
  *         &lt;element name="encryptionAlgorithm" type="{http://ws.dss.markt.ec.europa.eu/}encryptionAlgorithm" minOccurs="0"/>
- *         &lt;element name="references" type="{http://ws.dss.markt.ec.europa.eu/}dssReference" maxOccurs="unbounded" minOccurs="0"/>
+ *         &lt;element name="references" type="{http://ws.dss.markt.ec.europa.eu/}wsdssReference" maxOccurs="unbounded" minOccurs="0"/>
+ *         &lt;element name="signWithExpiredCertificate" type="{http://www.w3.org/2001/XMLSchema}boolean"/>
  *         &lt;element name="signatureLevel" type="{http://ws.dss.markt.ec.europa.eu/}signatureLevel" minOccurs="0"/>
  *         &lt;element name="signaturePackaging" type="{http://ws.dss.markt.ec.europa.eu/}signaturePackaging" minOccurs="0"/>
  *         &lt;element name="signaturePolicy" type="{http://ws.dss.markt.ec.europa.eu/}policy" minOccurs="0"/>
@@ -49,6 +53,9 @@ import javax.xml.datatype.XMLGregorianCalendar;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "wsParameters", propOrder = {
+    "asicMimeType",
+    "asicSignatureForm",
+    "asicZipComment",
     "certificateChainByteArrayList",
     "certifiedSignerRoles",
     "claimedSignerRole",
@@ -59,6 +66,7 @@ import javax.xml.datatype.XMLGregorianCalendar;
     "digestAlgorithm",
     "encryptionAlgorithm",
     "references",
+    "signWithExpiredCertificate",
     "signatureLevel",
     "signaturePackaging",
     "signaturePolicy",
@@ -70,6 +78,9 @@ import javax.xml.datatype.XMLGregorianCalendar;
 })
 public class WsParameters {
 
+    protected String asicMimeType;
+    protected SignatureForm asicSignatureForm;
+    protected boolean asicZipComment;
     @XmlElement(nillable = true)
     protected List<byte[]> certificateChainByteArrayList;
     @XmlElement(nillable = true)
@@ -84,7 +95,8 @@ public class WsParameters {
     protected DigestAlgorithm digestAlgorithm;
     protected EncryptionAlgorithm encryptionAlgorithm;
     @XmlElement(nillable = true)
-    protected List<DssReference> references;
+    protected List<WsdssReference> references;
+    protected boolean signWithExpiredCertificate;
     protected SignatureLevel signatureLevel;
     protected SignaturePackaging signaturePackaging;
     protected Policy signaturePolicy;
@@ -94,6 +106,70 @@ public class WsParameters {
     @XmlSchemaType(name = "dateTime")
     protected XMLGregorianCalendar signingDate;
     protected DigestAlgorithm timestampDigestAlgorithm;
+
+    /**
+     * Gets the value of the asicMimeType property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link String }
+     *     
+     */
+    public String getAsicMimeType() {
+        return asicMimeType;
+    }
+
+    /**
+     * Sets the value of the asicMimeType property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link String }
+     *     
+     */
+    public void setAsicMimeType(String value) {
+        this.asicMimeType = value;
+    }
+
+    /**
+     * Gets the value of the asicSignatureForm property.
+     * 
+     * @return
+     *     possible object is
+     *     {@link SignatureForm }
+     *     
+     */
+    public SignatureForm getAsicSignatureForm() {
+        return asicSignatureForm;
+    }
+
+    /**
+     * Sets the value of the asicSignatureForm property.
+     * 
+     * @param value
+     *     allowed object is
+     *     {@link SignatureForm }
+     *     
+     */
+    public void setAsicSignatureForm(SignatureForm value) {
+        this.asicSignatureForm = value;
+    }
+
+    /**
+     * Gets the value of the asicZipComment property.
+     * 
+     */
+    public boolean isAsicZipComment() {
+        return asicZipComment;
+    }
+
+    /**
+     * Sets the value of the asicZipComment property.
+     * 
+     */
+    public void setAsicZipComment(boolean value) {
+        this.asicZipComment = value;
+    }
 
     /**
      * Gets the value of the certificateChainByteArrayList property.
@@ -348,15 +424,31 @@ public class WsParameters {
      * 
      * <p>
      * Objects of the following type(s) are allowed in the list
-     * {@link DssReference }
+     * {@link WsdssReference }
      * 
      * 
      */
-    public List<DssReference> getReferences() {
+    public List<WsdssReference> getReferences() {
         if (references == null) {
-            references = new ArrayList<DssReference>();
+            references = new ArrayList<WsdssReference>();
         }
         return this.references;
+    }
+
+    /**
+     * Gets the value of the signWithExpiredCertificate property.
+     * 
+     */
+    public boolean isSignWithExpiredCertificate() {
+        return signWithExpiredCertificate;
+    }
+
+    /**
+     * Sets the value of the signWithExpiredCertificate property.
+     * 
+     */
+    public void setSignWithExpiredCertificate(boolean value) {
+        this.signWithExpiredCertificate = value;
     }
 
     /**

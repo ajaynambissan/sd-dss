@@ -44,7 +44,7 @@ import eu.europa.ec.markt.dss.signature.DSSDocument;
  * <p/>
  * NOTE: This dereferencer uses import org.jcp.xml.dsig.internal.dom.XMLDSigRI provider;
  *
- * @version $Revision: 3407 $ - $Date: 2014-02-04 09:35:42 +0100 (Tue, 04 Feb 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class ExternalFileURIDereferencer implements URIDereferencer {

@@ -20,22 +20,18 @@
 
 package eu.europa.ec.markt.dss.validation102853;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import javax.security.auth.x500.X500Principal;
 
@@ -47,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 
+import eu.europa.ec.markt.dss.CertificateIdentifier;
 import eu.europa.ec.markt.dss.DSSASN1Utils;
 import eu.europa.ec.markt.dss.DSSPKUtils;
 import eu.europa.ec.markt.dss.DSSUtils;
@@ -56,14 +53,11 @@ import eu.europa.ec.markt.dss.EncryptionAlgorithm;
 import eu.europa.ec.markt.dss.OID;
 import eu.europa.ec.markt.dss.SignatureAlgorithm;
 import eu.europa.ec.markt.dss.exception.DSSException;
-import eu.europa.ec.markt.dss.exception.DSSNotETSICompliantException;
 import eu.europa.ec.markt.dss.exception.DSSNullException;
+import eu.europa.ec.markt.dss.exception.DSSUnsupportedOperationException;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
-import eu.europa.ec.markt.dss.signature.MimeType;
 import eu.europa.ec.markt.dss.signature.SignatureLevel;
-import eu.europa.ec.markt.dss.validation102853.asic.ASiCCMSDocumentValidator;
-import eu.europa.ec.markt.dss.validation102853.asic.ASiCTimestampDocumentValidator;
-import eu.europa.ec.markt.dss.validation102853.asic.ASiCXMLDocumentValidator;
+import eu.europa.ec.markt.dss.validation102853.asic.ASiCContainerValidator;
 import eu.europa.ec.markt.dss.validation102853.bean.CandidatesForSigningCertificate;
 import eu.europa.ec.markt.dss.validation102853.bean.CertifiedRole;
 import eu.europa.ec.markt.dss.validation102853.bean.CommitmentType;
@@ -109,10 +103,7 @@ import eu.europa.ec.markt.dss.validation102853.loader.DataLoader;
 import eu.europa.ec.markt.dss.validation102853.ocsp.ListOCSPSource;
 import eu.europa.ec.markt.dss.validation102853.pades.PAdESSignature;
 import eu.europa.ec.markt.dss.validation102853.pades.PDFDocumentValidator;
-import eu.europa.ec.markt.dss.validation102853.report.DetailedReport;
-import eu.europa.ec.markt.dss.validation102853.report.DiagnosticData;
 import eu.europa.ec.markt.dss.validation102853.report.Reports;
-import eu.europa.ec.markt.dss.validation102853.report.SimpleReport;
 import eu.europa.ec.markt.dss.validation102853.scope.SignatureScope;
 import eu.europa.ec.markt.dss.validation102853.scope.SignatureScopeFinder;
 import eu.europa.ec.markt.dss.validation102853.xades.XAdESSignature;
@@ -130,6 +121,9 @@ import eu.europa.ec.markt.dss.validation102853.xades.XMLDocumentValidator;
 public abstract class SignedDocumentValidator implements DocumentValidator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SignedDocumentValidator.class);
+
+	private static final byte[] xmlPreamble = new byte[]{'<', '?', 'x', 'm', 'l'};
+	private static final byte[] xmlUtf8 = new byte[]{-17, -69, -65, '<', '?'};
 
 	/**
 	 * This variable can hold a specific {@code ProcessExecutor}
@@ -161,9 +155,9 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	protected DSSDocument document;
 
 	/**
-	 * In case of a detached signature this is the signed document.
+	 * In case of a detached signature this {@code List} contains the signed documents.
 	 */
-	protected DSSDocument detachedContent;
+	protected List<DSSDocument> detachedContents;
 
 	protected CertificateToken providedSigningCertificateToken = null;
 
@@ -171,7 +165,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	 * The reference to the certificate verifier. The current DSS implementation proposes {@link eu.europa.ec.markt.dss.validation102853.CommonCertificateVerifier}. This verifier
 	 * encapsulates the references to different sources used in the signature validation process.
 	 */
-	private CertificateVerifier certificateVerifier;
+	protected CertificateVerifier certificateVerifier;
 
 	/**
 	 * This list contains the list of signatures
@@ -182,8 +176,6 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	 * This variable contains the reference to the diagnostic data.
 	 */
 	protected eu.europa.ec.markt.dss.validation102853.data.diagnostic.DiagnosticData jaxbDiagnosticData; // JAXB object
-
-	protected Reports reports; // XmlDom objects (diagnostic data, detailed report and simple report)
 
 	private final Condition qcp = new PolicyIdCondition(OID.id_etsi_qcp_public.getId());
 
@@ -198,6 +190,51 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 
 	private HashMap<String, File> policyDocuments;
 
+	/**
+	 * This method guesses the document format and returns an appropriate document validator.
+	 *
+	 * @param dssDocument The instance of {@code DSSDocument} to validate
+	 * @return returns the specific instance of SignedDocumentValidator in terms of the document type
+	 */
+	public static SignedDocumentValidator fromDocument(final DSSDocument dssDocument) {
+
+		final String dssDocumentName = dssDocument.getName();
+		if (dssDocumentName != null && dssDocumentName.toLowerCase().endsWith(".xml")) {
+
+			return new XMLDocumentValidator(dssDocument);
+		}
+
+		int headerLength = 500;
+		byte[] preamble = new byte[headerLength];
+		int read = DSSUtils.readToArray(dssDocument, headerLength, preamble);
+		if (read < 5) {
+
+			throw new DSSException("The signature is not found.");
+		}
+		final String preambleString = new String(preamble);
+		if (isXmlPreamble(preamble)) {
+
+			return new XMLDocumentValidator(dssDocument);
+		} else if (preambleString.startsWith("%PDF-")) {
+
+			// TODO (29/08/2014): DSS-356
+			return new PDFDocumentValidator(dssDocument);
+		} else if (preamble[0] == 'P' && preamble[1] == 'K') {
+
+			return ASiCContainerValidator.getInstanceForAsics(dssDocument, preamble);
+		} else if (preambleString.getBytes()[0] == 0x30) {
+
+			return new CMSDocumentValidator(dssDocument);
+		} else {
+			throw new DSSException("Document format not recognized/handled");
+		}
+	}
+
+	private static boolean isXmlPreamble(byte[] preamble) {
+
+		return DSSUtils.equals(preamble, xmlPreamble, 5) || DSSUtils.equals(preamble, xmlUtf8, 5);
+	}
+
 	@Override
 	public DSSDocument getDocument() {
 
@@ -205,29 +242,9 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	}
 
 	@Override
-	@Deprecated
-	public DSSDocument getExternalContent() {
+	public List<DSSDocument> getDetachedContents() {
 
-		return detachedContent;
-	}
-
-	@Override
-	public DSSDocument getDetachedContent() {
-
-		return detachedContent;
-	}
-
-	/**
-	 * This method returns the external content mime-type.
-	 *
-	 * @return
-	 */
-	public MimeType getExternalContentMimeType() {
-
-		if (detachedContent != null) {
-			return detachedContent.getMimeType();
-		}
-		return null;
+		return detachedContents;
 	}
 
 	@Override
@@ -254,16 +271,9 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	}
 
 	@Override
-	@Deprecated
-	public void setExternalContent(final DSSDocument externalContent) {
+	public void setDetachedContents(final List<DSSDocument> detachedContents) {
 
-		this.detachedContent = externalContent;
-	}
-
-	@Override
-	public void setDetachedContent(final DSSDocument detachedContent) {
-
-		this.detachedContent = detachedContent;
+		this.detachedContents = detachedContents;
 	}
 
 	/**
@@ -293,101 +303,83 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 		policyDocuments.put(signatureId, policyDocument);
 	}
 
-	/**
-	 * Validates the document and all its signatures. The default constraint file is used.
-	 */
 	@Override
 	public Reports validateDocument() {
 
 		return validateDocument((InputStream) null);
 	}
 
-	/**
-	 * Validates the document and all its signatures. If the validation policy URL is set then the policy constraints are retrieved from this location. If null or empty the
-	 * default file is used.
-	 *
-	 * @param validationPolicyURL
-	 * @return
-	 */
 	@Override
 	public Reports validateDocument(final URL validationPolicyURL) {
+
 		if (validationPolicyURL == null) {
 			return validateDocument((InputStream) null);
-		} else {
-			try {
-				return validateDocument(validationPolicyURL.openStream());
-			} catch (IOException e) {
-				throw new DSSException(e);
-			}
+		}
+		try {
+			return validateDocument(validationPolicyURL.openStream());
+		} catch (IOException e) {
+			throw new DSSException(e);
 		}
 	}
 
-	/**
-	 * Validates the document and all its signatures. The policyResourcePath specifies the constraint file. If null or empty the default file is used.
-	 *
-	 * @param policyResourcePath is located against the classpath (getClass().getResourceAsStream), and NOT the filesystem
-	 */
 	@Override
 	public Reports validateDocument(final String policyResourcePath) {
 
 		if (policyResourcePath == null) {
 			return validateDocument((InputStream) null);
-		} else {
-			return validateDocument(getClass().getResourceAsStream(policyResourcePath));
 		}
+		return validateDocument(getClass().getResourceAsStream(policyResourcePath));
 	}
 
-	/**
-	 * Validates the document and all its signatures. The {@code policyFile} specifies the constraint file. If null or empty the default file is used.
-	 *
-	 * @param policyFile contains the validation policy (xml)
-	 */
 	@Override
 	public Reports validateDocument(final File policyFile) {
 
 		if (policyFile == null || !policyFile.exists()) {
 			return validateDocument((InputStream) null);
-		} else {
-			final InputStream inputStream = DSSUtils.toByteArrayInputStream(policyFile);
-			return validateDocument(inputStream);
 		}
+		final InputStream inputStream = DSSUtils.toByteArrayInputStream(policyFile);
+		return validateDocument(inputStream);
 	}
 
 	/**
 	 * Validates the document and all its signatures. The policyDataStream contains the constraint file. If null or empty the default file is used.
 	 *
-	 * @param policyDataStream
+	 * @param policyDataStream {@code InputStream}
 	 */
 	@Override
 	public Reports validateDocument(final InputStream policyDataStream) {
+
+		final Document validationPolicyDom = ValidationResourceManager.loadPolicyData(policyDataStream);
+		return validateDocument(validationPolicyDom);
+	}
+
+	/**
+	 * Validates the document and all its signatures. The {@code validationPolicyDom} contains the constraint file. If null or empty the default file is used.
+	 *
+	 * @param validationPolicyDom {@code Document}
+	 * @return
+	 */
+	@Override
+	public Reports validateDocument(final Document validationPolicyDom) {
 
 		LOG.info("Document validation...");
 		if (certificateVerifier == null) {
 
 			throw new DSSNullException(CertificateVerifier.class);
 		}
-
 		final eu.europa.ec.markt.dss.validation102853.data.diagnostic.DiagnosticData jaxbDiagnosticData = generateDiagnosticData();
 
 		final Document diagnosticDataDom = ValidationResourceManager.convert(jaxbDiagnosticData);
 
-		final Document validationPolicyDom = ValidationResourceManager.loadPolicyData(policyDataStream);
 		final ProcessExecutor executor = provideProcessExecutorInstance();
 		executor.setDiagnosticDataDom(diagnosticDataDom);
 		executor.setValidationPolicyDom(validationPolicyDom);
 
-		executor.execute();
-
-		reports = executor.getReports();
-
+		final Reports reports = executor.execute();
 		return reports;
 	}
 
-	/**
-	 * This method provides the possibility to set the specific {@code ProcessExecutor}
-	 *
-	 * @param processExecutor
-	 */
+	@Override
 	public void setProcessExecutor(final ProcessExecutor processExecutor) {
 
 		this.processExecutor = processExecutor;
@@ -413,7 +405,14 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	private eu.europa.ec.markt.dss.validation102853.data.diagnostic.DiagnosticData generateDiagnosticData() {
 
 		jaxbDiagnosticData = DIAGNOSTIC_DATA_OBJECT_FACTORY.createDiagnosticData();
-		jaxbDiagnosticData.setDocumentName(document.getAbsolutePath());
+
+		// To cope with tests it can be interesting to always keep the same file name within the reports (without the path).
+		String absolutePath = document.getAbsolutePath();
+		if (CertificateIdentifier.isUniqueIdentifier()) {
+
+			absolutePath = document.getName();
+		}
+		jaxbDiagnosticData.setDocumentName(absolutePath);
 
 		final Set<DigestAlgorithm> usedCertificatesDigestAlgorithms = new HashSet<DigestAlgorithm>();
 
@@ -452,6 +451,13 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 			final XmlSignature xmlSignature = validateSignature(signature);
 			usedCertificatesDigestAlgorithms.addAll(signature.getUsedCertificatesDigestAlgorithms());
 			jaxbDiagnosticData.getSignature().add(xmlSignature);
+			final List<SignatureCryptographicVerification> counterSignaturesVerifications = verifyCounterSignatures(signature, validationContext);
+			if (counterSignaturesVerifications.size() > 0) {
+				for (AdvancedSignature countersignature : signature.getCounterSignatures()) {
+					final XmlSignature xmlCounterSignature = validateSignature(countersignature);
+					jaxbDiagnosticData.getSignature().add(xmlCounterSignature);
+				}
+			}
 		}
 		final Set<CertificateToken> processedCertificates = validationContext.getProcessedCertificates();
 		dealUsedCertificates(usedCertificatesDigestAlgorithms, processedCertificates);
@@ -555,8 +561,9 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 		xmlTimestampToken.setEncodedSignedDataDigestValue(timestampToken.getEncodedSignedDataDigestValue());
 		xmlTimestampToken.setMessageImprintDataFound(timestampToken.isMessageImprintDataFound());
 		xmlTimestampToken.setMessageImprintDataIntact(timestampToken.isMessageImprintDataIntact());
+		xmlTimestampToken.setCanonicalizationMethod(timestampToken.getCanonicalizationMethod());
 
-		final SignatureAlgorithm signatureAlgorithm = timestampToken.getSignatureAlgo();
+		final SignatureAlgorithm signatureAlgorithm = timestampToken.getSignatureAlgorithm();
 		final XmlBasicSignatureType xmlBasicSignatureType = DIAGNOSTIC_DATA_OBJECT_FACTORY.createXmlBasicSignatureType();
 		if (signatureAlgorithm != null) {
 
@@ -575,7 +582,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 
 		final CertificateToken issuerToken = timestampToken.getIssuerToken();
 
-		XmlSigningCertificateType xmlTSSignCert = xmlForSigningCertificate(issuerToken, timestampToken.isSignatureValid());
+		XmlSigningCertificateType xmlTSSignCert = xmlForSigningCertificate(issuerToken);
 		xmlTimestampToken.setSigningCertificate(xmlTSSignCert);
 
 		final XmlCertificateChainType xmlCertChainType = xmlForCertificateChain(issuerToken);
@@ -784,7 +791,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 
 		final XmlBasicSignatureType xmlBasicSignatureType = DIAGNOSTIC_DATA_OBJECT_FACTORY.createXmlBasicSignatureType();
 
-		final SignatureAlgorithm signatureAlgorithm = certToken.getSignatureAlgo();
+		final SignatureAlgorithm signatureAlgorithm = certToken.getSignatureAlgorithm();
 		xmlBasicSignatureType.setDigestAlgoUsedToSignThisToken(signatureAlgorithm.getDigestAlgorithm().getName());
 		xmlBasicSignatureType.setEncryptionAlgoUsedToSignThisToken(signatureAlgorithm.getEncryptionAlgorithm().getName());
 		final String keyLength = certToken.getKeyLength();
@@ -797,7 +804,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 		xmlCert.setBasicSignature(xmlBasicSignatureType);
 
 		final CertificateToken issuerToken = certToken.getIssuerToken();
-		final XmlSigningCertificateType xmlSigningCertificate = xmlForSigningCertificate(issuerToken, certToken.isSignatureValid());
+		final XmlSigningCertificateType xmlSigningCertificate = xmlForSigningCertificate(issuerToken);
 		xmlCert.setSigningCertificate(xmlSigningCertificate);
 
 		final XmlCertificateChainType xmlCertChainType = xmlForCertificateChain(issuerToken);
@@ -911,7 +918,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 			xmlRevocation.setSourceAddress(revocationToken.getSourceURL());
 
 			final XmlBasicSignatureType xmlBasicSignatureType = DIAGNOSTIC_DATA_OBJECT_FACTORY.createXmlBasicSignatureType();
-			final SignatureAlgorithm revocationSignatureAlgo = revocationToken.getSignatureAlgo();
+			final SignatureAlgorithm revocationSignatureAlgo = revocationToken.getSignatureAlgorithm();
 			final boolean unknownAlgorithm = revocationSignatureAlgo == null;
 			final String encryptionAlgorithmName = unknownAlgorithm ? "?" : revocationSignatureAlgo.getEncryptionAlgorithm().getName();
 			xmlBasicSignatureType.setEncryptionAlgoUsedToSignThisToken(encryptionAlgorithmName);
@@ -928,7 +935,7 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 			xmlRevocation.setBasicSignature(xmlBasicSignatureType);
 
 			final CertificateToken issuerToken = revocationToken.getIssuerToken();
-			final XmlSigningCertificateType xmlRevocationSignCert = xmlForSigningCertificate(issuerToken, revocationToken.isSignatureValid());
+			final XmlSigningCertificateType xmlRevocationSignCert = xmlForSigningCertificate(issuerToken);
 			xmlRevocation.setSigningCertificate(xmlRevocationSignCert);
 
 			final XmlCertificateChainType xmlCertChainType = xmlForCertificateChain(issuerToken);
@@ -1272,8 +1279,8 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	}
 
 	/**
-	 * This method finds the signing certificate and creates its JAXB object representation. The signing certificate used to produce the main signature (signature being analysed).
-	 * If the signingToken is null (the signing certificate was not found) then Id is set to 0.
+	 * This method finds the signing certificate and creates its JAXB object representation. This is the signing certificate used to produce the main signature (signature being
+	 * analysed). If the signingToken is null (the signing certificate was not found) then Id is set to 0.
 	 *
 	 * @param signature    Signature to be validated (can be XAdES, CAdES, PAdES).
 	 * @param xmlSignature The JAXB object containing all diagnostic data pertaining to the signature
@@ -1303,99 +1310,48 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 		return theSigningCertificateValidity;
 	}
 
-/*
-    TODO: (Bob) Old code to be adapted when we are ready to handle the countersignatures.
+	/**
+	 * This method performs a global check on all countersignatures present in a given signature
+	 *
+	 * @param signature
+	 * @param ctx
+	 * @return a list of SignatureCryptographicVerification objects
+	 */
+	protected List<SignatureCryptographicVerification> verifyCounterSignatures(final AdvancedSignature signature, final ValidationContext ctx) {
 
-    protected SignatureVerification[] verifyCounterSignatures(final AdvancedSignature signature, final ValidationContext ctx) {
+		final List<AdvancedSignature> counterSignatures = signature.getCounterSignatures();
 
-        final List<AdvancedSignature> counterSignatures = signature.getCounterSignatures();
+		if (counterSignatures == null) {
+			return null;
+		}
 
-        if (counterSignatures == null) {
-            return null;
-        }
+		List<SignatureCryptographicVerification> verifications = new ArrayList<SignatureCryptographicVerification>();
 
-        final List<SignatureVerification> counterSigVerifs = new ArrayList<SignatureVerification>();
-        for (final AdvancedSignature counterSig : counterSignatures) {
+		for (final AdvancedSignature counterSignature : counterSignatures) {
+			final SignatureCryptographicVerification scv = counterSignature.checkSignatureIntegrity();
+			verifications.add(scv);
+		}
 
-            final Result counterSigResult;
-            try {
+		return verifications;
+	}
 
-                final SignatureCryptographicVerification scv = counterSig.checkSignatureIntegrity(getExternalContent());
-                counterSigResult = new Result(scv.signatureValid());
-            } catch (DSSException e) {
-                throw new RuntimeException(e);
-            }
-            final String counterSigAlg = counterSig.getEncryptionAlgorithm().getName();
-            counterSigVerifs.add(new SignatureVerification(counterSigResult, counterSigAlg, signature.getId()));
-        }
+	/**
+	 * This method creates the SigningCertificate element for the current token.
+	 *
+	 * @param issuerCertificateToken the issuer certificate of the current token
+	 * @return
+	 */
+	protected XmlSigningCertificateType xmlForSigningCertificate(final CertificateToken issuerCertificateToken) {
 
-        final SignatureVerification[] ret = new SignatureVerification[counterSigVerifs.size()];
-        return counterSigVerifs.toArray(ret);
-    }
-*/
-
-	protected XmlSigningCertificateType xmlForSigningCertificate(final CertificateToken certificateToken, boolean signatureValid) {
-
-		if (certificateToken != null) {
+		if (issuerCertificateToken != null) {
 
 			final XmlSigningCertificateType xmlSignCertType = DIAGNOSTIC_DATA_OBJECT_FACTORY.createXmlSigningCertificateType();
 
-			xmlSignCertType.setId(certificateToken.getDSSId());
-			xmlSignCertType.setAttributePresent(signatureValid);
-			xmlSignCertType.setDigestValueMatch(signatureValid);
-			xmlSignCertType.setIssuerSerialMatch(signatureValid);
+			xmlSignCertType.setId(issuerCertificateToken.getDSSId());
 			return xmlSignCertType;
 		}
 		return null;
 	}
-
-	/**
-	 * @return The diagnostic data generated by the validateDocument method
-	 */
-	@Override
-	public DiagnosticData getDiagnosticData() {
-
-		return reports.getDiagnosticData();
-	}
-
-	/**
-	 * Returns the simple report. The method {@link #validateDocument()} or {@link #validateDocument(String)} must be called first.
-	 *
-	 * @return
-	 */
-	@Override
-	public SimpleReport getSimpleReport() {
-		return reports.getSimpleReport();
-	}
-
-	/**
-	 * Returns the detailed report. The method {@link #validateDocument()} or {@link #validateDocument(String)} must be called first.
-	 *
-	 * @return
-	 */
-	@Override
-	public DetailedReport getDetailedReport() {
-		return reports.getDetailedReport();
-	}
-
-	/**
-	 * Output to System.out the diagnosticData, detailedReport and SimpleReport.
-	 */
-	@Override
-	public void printReports() {
-
-		System.out.println("----------------Diagnostic data-----------------");
-		System.out.println(getDiagnosticData());
-
-		System.out.println("----------------Validation report---------------");
-		System.out.println(getDetailedReport());
-
-		System.out.println("----------------Simple report-------------------");
-		System.out.println(getSimpleReport());
-
-		System.out.println("------------------------------------------------");
-	}
-
 
 	public SignatureScopeFinder<XAdESSignature> getXadesSignatureScopeFinder() {
 		return xadesSignatureScopeFinder;
@@ -1439,273 +1395,21 @@ public abstract class SignedDocumentValidator implements DocumentValidator {
 	protected abstract SignatureScopeFinder getSignatureScopeFinder();
 
 	/**
-	 * ******************************************************************************************
-	 * <p/>
-	 * BUILDER METHODS (Should be in a specific class)
-	 * <p/>
-	 * *******************************************************************************************
-	 */
-
-	public static final String MIME_TYPE = "mimetype";
-	public static final String MIME_TYPE_COMMENT = MIME_TYPE + "=";
-
-	private static final String PATTERN_SIGNATURES_XML = "META-INF/signatures.xml";
-	private static final String PATTERN_SIGNATURES_P7S = "META-INF/signature.p7s";
-	private static final String PATTERN_TIMESTAMP_TST = "META-INF/timestamp.tst";
-
-	/**
-	 * This method guesses the document format and returns an appropriate document validator.
+	 * This method allows to define the sequence of the validator related to a document to validate. It's only used with ASiC-E container.
 	 *
-	 * @param dssDocument The instance of {@code DSSDocument} to validate
-	 * @return returns the specific instance of SignedDocumentValidator in terms of the document type
+	 * @param validator {@code SignedDocumentValidator} corresponding to the next signature with in the contained.
 	 */
-	public static SignedDocumentValidator fromDocument(final DSSDocument dssDocument) {
-
-		BufferedInputStream input = null;
-		try {
-
-			final String dssDocumentName = dssDocument.getName();
-			if (dssDocumentName != null && dssDocumentName.toLowerCase().endsWith(".xml")) {
-
-				return new XMLDocumentValidator(dssDocument);
-			}
-
-			input = new BufferedInputStream(dssDocument.openStream());
-			/**
-			 * In case of ASiC it can be possible to read the mimetype from the binary file:
-			 * FROM: ETSI TS 102 918 V1.2.1
-			 * A.1 Mimetype
-			 * The "mimetype" object, when stored in a ZIP, file can be used to support operating systems that rely on some content in
-			 * specific positions in a file (the so called "magic number" as described in RFC 4288 [11] in order to select the specific
-			 * application that can load and elaborate the file content. The following restrictions apply to the mimetype to support this
-			 * feature:
-			 * • it has to be the first in the archive;
-			 * • it cannot contain "Extra fields" (i.e. extra field length at offset 28 shall be zero);
-			 * • it cannot be compressed (i.e. compression method at offset 8 shall be zero);
-			 * • the first 4 octets shall have the hex values: "50 4B 03 04".
-			 * An application can ascertain if this feature is used by checking if the string "mimetype" is found starting at offset 30. In
-			 * this case it can be assumed that a string representing the container mime type is present starting at offset 38; the length
-			 * of this string is contained in the 4 octets starting at offset 18.
-			 * All multi-octets values are little-endian.
-			 * The "mimetype" shall NOT be compressed or encrypted inside the ZIP file.
-			 */
-			int headerLength = 500;
-			input.mark(headerLength);
-			byte[] preamble = new byte[headerLength];
-			int read = input.read(preamble);
-			input.reset();
-			if (read < 5) {
-
-				throw new DSSException("The signature is not found.");
-			}
-			String preambleString = new String(preamble);
-			byte[] xmlPreamble = new byte[]{'<', '?', 'x', 'm', 'l'};
-			byte[] xmlUtf8 = new byte[]{-17, -69, -65, '<', '?'};
-			if (DSSUtils.equals(preamble, xmlPreamble, 5) || DSSUtils.equals(preamble, xmlUtf8, 5)) {
-
-				return new XMLDocumentValidator(dssDocument);
-			} else if (preambleString.startsWith("%PDF-")) {
-
-				return new PDFDocumentValidator(dssDocument);
-			} else if (preamble[0] == 'P' && preamble[1] == 'K') {
-
-				/**
-				 * --> The use of two first bytes is not standard conforming.
-				 *
-				 * 5.2.1 Media type identification
-				 * 1) File extension: ".asics" should be used (".scs" is allowed for operating systems and/or file systems not
-				 * allowing more than 3 characters file extensions). In the case that the container content is to be handled
-				 * manually, the ".zip" extension may be used.
-				 */
-				DSSUtils.closeQuietly(input);
-				input = null;
-				return getInstanceForAsics(dssDocument, preamble);
-			} else if (preambleString.getBytes()[0] == 0x30) {
-
-				return new CMSDocumentValidator(dssDocument);
-			} else {
-				throw new DSSException("Document format not recognized/handled");
-			}
-		} catch (IOException e) {
-			throw new DSSException(e);
-		} finally {
-			DSSUtils.closeQuietly(input);
-		}
+	public void setNextValidator(final DocumentValidator validator) {
+		throw new DSSUnsupportedOperationException("This method is not applicable in this context!");
 	}
 
-	/**
-	 * @param asicContainer The instance of {@code DSSDocument} to validate
-	 * @param preamble      contains the beginning of the file
-	 * @return
-	 * @throws eu.europa.ec.markt.dss.exception.DSSException
-	 */
-	private static SignedDocumentValidator getInstanceForAsics(final DSSDocument asicContainer, byte[] preamble) throws DSSException {
-
-		ZipInputStream asics = null;
-		try {
-
-			asics = new ZipInputStream(asicContainer.openStream());
-
-			String dataFileName = "";
-			ByteArrayOutputStream signedDocument = null;
-			ByteArrayOutputStream signature = null;
-			ByteArrayOutputStream timeStamp = null;
-			ZipEntry entry;
-
-			boolean cadesSigned = false;
-			boolean xadesSigned = false;
-			boolean timestamped = false;
-
-			MimeType asicMimeType = null;
-
-			while ((entry = asics.getNextEntry()) != null) {
-
-				final String entryName = entry.getName();
-				if (entryName.contains(PATTERN_SIGNATURES_P7S)) {
-
-					if (xadesSigned) {
-						throw new DSSNotETSICompliantException(DSSNotETSICompliantException.MSG.MORE_THAN_ONE_SIGNATURE);
-					}
-					signature = new ByteArrayOutputStream();
-					DSSUtils.copy(asics, signature);
-					cadesSigned = true;
-				} else if (entryName.contains(PATTERN_SIGNATURES_XML)) {
-
-					if (cadesSigned) {
-						throw new DSSNotETSICompliantException(DSSNotETSICompliantException.MSG.MORE_THAN_ONE_SIGNATURE);
-					}
-					signature = new ByteArrayOutputStream();
-					DSSUtils.copy(asics, signature);
-					xadesSigned = true;
-				} else if (entryName.contains(PATTERN_TIMESTAMP_TST)) {
-
-					timeStamp = new ByteArrayOutputStream();
-					DSSUtils.copy(asics, timeStamp);
-					timestamped = true;
-				} else if (entryName.equalsIgnoreCase(MIME_TYPE)) {
-
-					ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-					DSSUtils.copy(asics, byteArrayOutputStream);
-					final String mimeTypeString = byteArrayOutputStream.toString("UTF-8");
-					asicMimeType = MimeType.fromCode(mimeTypeString);
-				} else if (entryName.indexOf("/") == -1) {
-
-					if (signedDocument == null) {
-
-						signedDocument = new ByteArrayOutputStream();
-						DSSUtils.copy(asics, signedDocument);
-						dataFileName = entryName;
-					} else {
-						throw new DSSException("ASiC-S profile support only one data file");
-					}
-				}
-			}
-
-			final MimeType asicCommentString = getZipComment(asicContainer.getBytes());
-			final MimeType magicNumberMimeType = getMagicNumberMimeType(preamble);
-
-			if (xadesSigned) {
-
-				final ASiCXMLDocumentValidator xmlValidator = new ASiCXMLDocumentValidator(signature.toByteArray(), signedDocument.toByteArray(), dataFileName);
-				xmlValidator.setAsicContainerMimeType(asicContainer.getMimeType());
-				xmlValidator.setAsicMimeType(asicMimeType);
-				xmlValidator.setAsicCommentMimeType(asicCommentString);
-				xmlValidator.setMagicNumberMimeType(magicNumberMimeType);
-				return xmlValidator;
-			} else if (cadesSigned) {
-
-				final ASiCCMSDocumentValidator cmsValidator = new ASiCCMSDocumentValidator(signature.toByteArray(), signedDocument.toByteArray(), dataFileName);
-				cmsValidator.setAsicContainerMimeType(asicContainer.getMimeType());
-				cmsValidator.setAsicMimeType(asicMimeType);
-				cmsValidator.setAsicCommentMimeType(asicCommentString);
-				cmsValidator.setMagicNumberMimeType(magicNumberMimeType);
-				return cmsValidator;
-			} else if (timestamped) {
-
-				final ASiCTimestampDocumentValidator timestampValidator = new ASiCTimestampDocumentValidator(timeStamp.toByteArray(), signedDocument.toByteArray(), dataFileName);
-				timestampValidator.setAsicContainerMimeType(asicContainer.getMimeType());
-				timestampValidator.setAsicMimeType(asicMimeType);
-				timestampValidator.setAsicCommentMimeType(asicCommentString);
-				timestampValidator.setMagicNumberMimeType(magicNumberMimeType);
-				return timestampValidator;
-			} else {
-				throw new DSSException("It is neither XAdES nor CAdES, nor timestamp signature!");
-			}
-		} catch (Exception e) {
-			if (e instanceof DSSException) {
-				throw (DSSException) e;
-			}
-			throw new DSSException(e);
-		} finally {
-			DSSUtils.closeQuietly(asics);
-		}
-	}
-
-	private static MimeType getZipComment(final byte[] buffer) {
-
-		final int len = buffer.length;
-		final byte[] magicDirEnd = {0x50, 0x4b, 0x05, 0x06};
-		final int buffLen = Math.min(buffer.length, len);
-		// Check the buffer from the end
-		for (int ii = buffLen - magicDirEnd.length - 22; ii >= 0; ii--) {
-
-			boolean isMagicStart = true;
-			for (int jj = 0; jj < magicDirEnd.length; jj++) {
-
-				if (buffer[ii + jj] != magicDirEnd[jj]) {
-
-					isMagicStart = false;
-					break;
-				}
-			}
-			if (isMagicStart) {
-
-				// Magic Start found!
-				int commentLen = buffer[ii + 20] + buffer[ii + 21] * 256;
-				int realLen = buffLen - ii - 22;
-				if (commentLen != realLen) {
-					LOG.warn("WARNING! ZIP comment size mismatch: directory says len is " + commentLen + ", but file ends after " + realLen + " bytes!");
-				}
-				final String comment = new String(buffer, ii + 22, Math.min(commentLen, realLen));
-
-				final int indexOf = comment.indexOf(SignedDocumentValidator.MIME_TYPE_COMMENT);
-				if (indexOf > -1) {
-
-					final String asicCommentMimeTypeString = comment.substring(SignedDocumentValidator.MIME_TYPE_COMMENT.length() + indexOf);
-					final MimeType mimeType = MimeType.fromCode(asicCommentMimeTypeString);
-					return mimeType;
-				}
-			}
-		}
-		LOG.warn("ZIP comment NOT found!");
-		return null;
-	}
-
-	private static MimeType getMagicNumberMimeType(final byte[] preamble) {
-
-		if (preamble[28] == 0 && preamble[8] == 0) {
-
-			final byte[] lengthBytes = Arrays.copyOfRange(preamble, 18, 18 + 4);
-			final int length = java.nio.ByteBuffer.wrap(lengthBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt();
-
-			final byte[] mimeTypeTagBytes = Arrays.copyOfRange(preamble, 30, 30 + 8);
-			final String mimeTypeTagString = DSSUtils.getUtf8String(mimeTypeTagBytes);
-			if (MIME_TYPE.equals(mimeTypeTagString)) {
-
-				final byte[] mimeTypeBytes = Arrays.copyOfRange(preamble, 30 + 8, 30 + 8 + length);
-				String magicNumberMimeType = DSSUtils.getUtf8String(mimeTypeBytes);
-				if (DSSUtils.isNotBlank(magicNumberMimeType)) {
-
-					MimeType mimeType = MimeType.fromCode(magicNumberMimeType);
-					return mimeType;
-				}
-			}
-		}
+	@Override
+	public DocumentValidator getNextValidator() {
 		return null;
 	}
 
 	@Override
-	public Reports getReports() {
-		return reports;
+	public DocumentValidator getSubordinatedValidator() {
+		return null;
 	}
 }

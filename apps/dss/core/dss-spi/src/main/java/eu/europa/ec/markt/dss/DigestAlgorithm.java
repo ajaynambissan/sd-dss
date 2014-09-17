@@ -33,7 +33,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Supported Algorithms
  *
- * @version $Revision: 4262 $ - $Date: 2014-07-13 19:25:42 +0200 (Sun, 13 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 public enum DigestAlgorithm {
 
@@ -227,8 +227,10 @@ public enum DigestAlgorithm {
 		 * NULL there. Therefore we always include a NULL parameter even with SHA-1, despite the recommendation, because the RFC
 		 * states that implementations SHOULD support it as well anyway
 		 */
-		final ASN1ObjectIdentifier asn1ObjectIdentifier = this.getOid();
+		final ASN1ObjectIdentifier asn1ObjectIdentifier = oid;
 		final AlgorithmIdentifier algorithmIdentifier = new AlgorithmIdentifier(asn1ObjectIdentifier, DERNull.INSTANCE);
 		return algorithmIdentifier;
+		//		final AlgorithmIdentifier digAlgId = new DefaultDigestAlgorithmIdentifierFinder().find(name);
+		//		return digAlgId;
 	}
 }

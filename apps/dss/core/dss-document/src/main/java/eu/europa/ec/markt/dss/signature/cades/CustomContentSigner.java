@@ -31,7 +31,7 @@ import eu.europa.ec.markt.dss.DSSUtils;
 /**
  * ContentSigner using a provided pre-computed signature
  *
- * @version $Revision: 4191 $ - $Date: 2014-07-04 23:16:26 +0200 (Fri, 04 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class CustomContentSigner implements ContentSigner {

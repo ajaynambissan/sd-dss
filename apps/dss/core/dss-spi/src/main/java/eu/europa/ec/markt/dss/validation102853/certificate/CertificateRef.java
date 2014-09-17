@@ -25,7 +25,7 @@ import eu.europa.ec.markt.dss.DSSUtils;
 /**
  * Reference a Certificate
  *
- * @version $Revision: 3659 $ - $Date: 2014-03-25 12:27:11 +0100 (Tue, 25 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class CertificateRef {

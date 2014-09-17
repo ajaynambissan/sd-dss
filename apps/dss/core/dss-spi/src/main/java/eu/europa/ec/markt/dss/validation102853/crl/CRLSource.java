@@ -27,7 +27,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateToken;
  * The validation of a certificate requires the access to some CRLs. This information can be found online, in a cache or even in
  * the signature itself. This interface provides an abstraction of a CRL data source.
  *
- * @version $Revision: 3564 $ - $Date: 2014-03-06 16:19:24 +0100 (Thu, 06 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public interface CRLSource {

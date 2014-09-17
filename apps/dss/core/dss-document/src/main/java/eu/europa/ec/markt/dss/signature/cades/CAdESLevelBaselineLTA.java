@@ -73,7 +73,8 @@ public class CAdESLevelBaselineLTA extends CAdESSignatureExtension {
     protected SignerInformation extendCMSSignature(final CMSSignedData cmsSignedData, SignerInformation signerInformation,
                                                    final SignatureParameters parameters) throws DSSException {
 
-        CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation, parameters.getDetachedContent());
+        CAdESSignature cadesSignature = new CAdESSignature(cmsSignedData, signerInformation);
+	    cadesSignature.setDetachedContents(parameters.getDetachedContent());
         AttributeTable unsignedAttributes = CAdESSignature.getUnsignedAttributes(signerInformation);
         unsignedAttributes = addArchiveTimestampV3Attribute(cadesSignature, cmsSignedData, signerInformation, parameters, unsignedAttributes);
         SignerInformation newSignerInformation = SignerInformation.replaceUnsignedAttributes(signerInformation, unsignedAttributes);
@@ -107,13 +108,13 @@ public class CAdESLevelBaselineLTA extends CAdESSignatureExtension {
     private AttributeTable addArchiveTimestampV3Attribute(CAdESSignature cadesSignature, CMSSignedData cmsSignedData, SignerInformation signerInformation,
                                                           SignatureParameters parameters, AttributeTable unsignedAttributes) throws DSSException {
         final CadesLevelBaselineLTATimestampExtractor cadesLevelBaselineLTATimestampExtractor = new CadesLevelBaselineLTATimestampExtractor();
-        final DigestAlgorithm timestampDigestAlgorithm = parameters.getTimestampDigestAlgorithm();
+        final DigestAlgorithm timestampDigestAlgorithm = parameters.getSignatureTimestampParameters().getDigestAlgorithm();
         final Attribute atsHashIndexAttribute = cadesLevelBaselineLTATimestampExtractor.getAtsHashIndex(signerInformation, timestampDigestAlgorithm, cadesSignature);
 
         final byte[] originalDocumentBytes = getOriginalDocumentBytes(cmsSignedData, parameters);
 
         final byte[] encodedToTimestamp = cadesLevelBaselineLTATimestampExtractor
-              .getArchiveTimestampDataV3(cadesSignature, signerInformation, atsHashIndexAttribute, originalDocumentBytes, parameters.getTimestampDigestAlgorithm());
+              .getArchiveTimestampDataV3(cadesSignature, signerInformation, atsHashIndexAttribute, originalDocumentBytes, parameters.getSignatureTimestampParameters().getDigestAlgorithm());
 
         final ASN1Object timeStampAttributeValue = getTimeStampAttributeValue(signatureTsa, encodedToTimestamp, timestampDigestAlgorithm, atsHashIndexAttribute);
 

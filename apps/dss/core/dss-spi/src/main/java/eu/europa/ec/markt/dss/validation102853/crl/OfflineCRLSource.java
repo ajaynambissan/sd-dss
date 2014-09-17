@@ -38,7 +38,7 @@ import eu.europa.ec.markt.dss.validation102853.CertificateToken;
  * This class if a basic skeleton that is able to retrieve the needed CRL data from a list. The child need to retrieve
  * the list of wrapped CRLs.
  *
- * @version $Revision: 3966 $ - $Date: 2014-05-25 19:32:19 +0200 (Sun, 25 May 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public abstract class OfflineCRLSource extends CommonCRLSource {

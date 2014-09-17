@@ -29,7 +29,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Interface for a PrivateKey.
  *
- * @version $Revision: 3385 $ - $Date: 2014-01-27 08:45:34 +0100 (Mon, 27 Jan 2014) $
+ * @version $Revision$ - $Date$
  */
 public interface DSSPrivateKeyEntry {
 

@@ -25,7 +25,7 @@ import eu.europa.ec.markt.dss.DigestAlgorithm;
 /**
  * Represents the value of a SignaturePolicy
  *
- * @version $Revision: 3577 $ - $Date: 2014-03-11 12:23:07 +0100 (Tue, 11 Mar 2014) $
+ * @version $Revision$ - $Date$
  */
 public class SignaturePolicy {
 

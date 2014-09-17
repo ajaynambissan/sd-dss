@@ -25,7 +25,7 @@ import java.util.prefs.Preferences;
 /**
  * Stores the user preferences in the Java Preferences API.
  *
- * @version $Revision: 2819 $ - $Date: 2013-10-28 17:07:11 +0100 (Mon, 28 Oct 2013) $
+ * @version $Revision$ - $Date$
  */
 
 public class JavaPreferencesDAO implements UserPreferencesDAO {

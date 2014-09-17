@@ -8,7 +8,7 @@
     <parent>
         <groupId>eu.europa.ec.joinup.sd-dss</groupId>
         <artifactId>sd-dss-app</artifactId>
-        <version>4.1.0</version>
+	    <version>4.2.0-RC</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -34,25 +34,19 @@
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-ext-jdk15on</artifactId>
+            <artifactId>bcprov-jdk15on</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk15on</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcmail-jdk15on</artifactId>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.bouncycastle</groupId>-->
+            <!--<artifactId>bcpkix-jdk15on</artifactId>-->
+        <!--</dependency>-->
+        <!--<dependency>-->
+            <!--<groupId>org.bouncycastle</groupId>-->
+            <!--<artifactId>bcmail-jdk15on</artifactId>-->
+        <!--</dependency>-->
         <dependency>
             <groupId>org.apache.santuario</groupId>
             <artifactId>xmlsec</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>commons-dbcp</groupId>
-            <artifactId>commons-dbcp</artifactId>
-            <version>1.4</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>xerces</groupId>

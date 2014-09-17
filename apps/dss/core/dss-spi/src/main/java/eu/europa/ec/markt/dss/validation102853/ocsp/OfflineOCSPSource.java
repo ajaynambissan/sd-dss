@@ -35,7 +35,7 @@ import eu.europa.ec.markt.dss.DSSRevocationUtils;
 /**
  * Abstract class that helps to implement an OCSPSource with an already loaded list of BasicOCSPResp
  *
- * @version $Revision: 4230 $ - $Date: 2014-07-11 11:57:59 +0200 (Fri, 11 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public abstract class OfflineOCSPSource implements OCSPSource {

@@ -24,9 +24,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.crypto.dsig.CanonicalizationMethod;
-import javax.xml.crypto.dsig.XMLSignature;
-
 import eu.europa.ec.markt.dss.CertificateIdentifier;
 import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.DigestAlgorithm;
@@ -39,7 +36,9 @@ import eu.europa.ec.markt.dss.signature.SignatureLevel;
 import eu.europa.ec.markt.dss.signature.SignaturePackaging;
 import eu.europa.ec.markt.dss.signature.token.DSSPrivateKeyEntry;
 import eu.europa.ec.markt.dss.signature.token.SignatureTokenConnection;
+import eu.europa.ec.markt.dss.validation102853.SignatureForm;
 import eu.europa.ec.markt.dss.validation102853.TimestampToken;
+import eu.europa.ec.markt.dss.validation102853.xades.XPathQueryHolder;
 
 /**
  * Parameters for a Signature creation/extension
@@ -97,7 +96,7 @@ public class SignatureParameters {
 	 * XAdES: The digest algorithm used to hash ds:SignedInfo.
 	 */
 	private DigestAlgorithm digestAlgorithm = signatureAlgorithm.getDigestAlgorithm();
-	private List<DSSReference> references;
+	private List<DSSReference> dssReferences;
 
 	/**
 	 * The object representing the parameters related to B- level.
@@ -113,10 +112,17 @@ public class SignatureParameters {
 	private String contactInfo;
 	private String deterministicId;
 
-	private DigestAlgorithm timestampDigestAlgorithm = DigestAlgorithm.SHA256;
-	private DigestAlgorithm archiveTimestampDigestAlgorithm = DigestAlgorithm.SHA256;
+	private String toCounterSignSignatureId;
+	private String xPathLocationString;
+
+	private TimestampParameters signatureTimestampParameters;
+	private TimestampParameters archiveTimestampParameters;
+	private TimestampParameters contentTimestampParameters;
 
 	private List<TimestampToken> contentTimestamps;
+
+	private XPathQueryHolder toCountersignXPathQueryHolder = new XPathQueryHolder();
+	private String toCounterSignSignatureValueId;
 
 	public SignatureParameters() {
 
@@ -126,6 +132,12 @@ public class SignatureParameters {
 	 * The document to be signed
 	 */
 	private DSSDocument detachedContent;
+
+	// TODO-Bob (11/09/2014):  More then one document
+	//	/**
+	//	 * The documents to be signed. In the case where more then one document should be signed.
+	//	 */
+	//	private List<DSSDocument> detachedContents;
 
 	/**
 	 * Copy constructor (used by ASiC)
@@ -157,18 +169,49 @@ public class SignatureParameters {
 		signingCertificate = source.signingCertificate;
 		signWithExpiredCertificate = source.signWithExpiredCertificate;
 		signingToken = source.signingToken;
-		timestampDigestAlgorithm = source.timestampDigestAlgorithm;
 		contentTimestamps = source.getContentTimestamps();
+		toCounterSignSignatureId = source.getToCounterSignSignatureId();
+		signatureTimestampParameters = source.signatureTimestampParameters;
+		archiveTimestampParameters = source.archiveTimestampParameters;
+		toCountersignXPathQueryHolder = source.toCountersignXPathQueryHolder;
 
+		final List<DSSReference> references = source.getReferences();
+		if (references != null && references.size() > 0) {
+
+			dssReferences = new ArrayList<DSSReference>();
+			for (final DSSReference reference : references) {
+
+				final DSSReference dssReference = new DSSReference(reference);
+				dssReferences.add(dssReference);
+			}
+		}
 		// This is a simple copy of reference and not of the object content!
 		context = source.context;
+	}
+
+	/**
+	 * This method returns the Id of the signature to be countersigned.
+	 *
+	 * @return
+	 */
+	public String getToCounterSignSignatureId() {
+		return toCounterSignSignatureId;
+	}
+
+	/**
+	 * This method sets the Id of the signature to be countersigned.
+	 *
+	 * @param toCounterSignSignatureId
+	 */
+	public void setToCounterSignSignatureId(String toCounterSignSignatureId) {
+		this.toCounterSignSignatureId = toCounterSignSignatureId;
 	}
 
 	/**
 	 * This method returns the document to sign. In the case of the DETACHED signature this is the detached document.
 	 *
 	 * @return
-	 * @deprecated (4.1.0) use {@code getDetachedContent}
+	 * @deprecated (4.1.0) use {@code getContents}
 	 */
 	@Deprecated
 	public DSSDocument getOriginalDocument() {
@@ -190,7 +233,7 @@ public class SignatureParameters {
 	 * When extending this method must be invoked to indicate the {@code detachedContent}.
 	 *
 	 * @param document
-	 * @deprecated (4.1.0) use {@code setDetachedContent}
+	 * @deprecated (4.1.0) use {@code setContents}
 	 */
 	@Deprecated
 	public void setOriginalDocument(final DSSDocument document) {
@@ -338,13 +381,13 @@ public class SignatureParameters {
 	 */
 	public void setCertificateChain(final X509Certificate... certificateChainArray) {
 
-		if (certificateChainArray == null) {
-			return;
-		}
 		for (final X509Certificate certificate : certificateChainArray) {
 
-			if (!certificateChain.contains(certificate)) {
-				certificateChain.add(certificate);
+			if (certificate != null) {
+
+				if (!certificateChain.contains(certificate)) {
+					certificateChain.add(certificate);
+				}
 			}
 		}
 	}
@@ -413,6 +456,11 @@ public class SignatureParameters {
 		if (signatureLevel == null) {
 			throw new DSSNullException(SignatureLevel.class);
 		}
+		final SignatureForm signatureForm = signatureLevel.getSignatureForm();
+		if (SignatureForm.ASiC_S.equals(signatureForm) || SignatureForm.ASiC_E.equals(signatureForm)) {
+
+			aSiC().containerForm = signatureForm;
+		}
 		this.signatureLevel = signatureLevel;
 	}
 
@@ -430,7 +478,7 @@ public class SignatureParameters {
 	 *
 	 * @param signaturePackaging the value
 	 */
-	public void setSignaturePackaging(SignaturePackaging signaturePackaging) {
+	public void setSignaturePackaging(final SignaturePackaging signaturePackaging) {
 		this.signaturePackaging = signaturePackaging;
 	}
 
@@ -486,42 +534,11 @@ public class SignatureParameters {
 
 	public List<DSSReference> getReferences() {
 
-		if (references == null) {
-
-			references = new ArrayList<DSSReference>();
-
-			DSSReference dssReference = new DSSReference();
-			dssReference.setId("xml_ref_id");
-			dssReference.setUri("");
-			/// dssReference.setType("");
-
-			final List<DSSTransform> dssTransformList = new ArrayList<DSSTransform>();
-
-			DSSTransform dssTransform = new DSSTransform();
-			dssTransform.setAlgorithm(CanonicalizationMethod.ENVELOPED);
-			dssTransformList.add(dssTransform);
-
-			dssTransform = new DSSTransform();
-			dssTransform.setAlgorithm(CanonicalizationMethod.EXCLUSIVE);
-			dssTransformList.add(dssTransform);
-
-			// For double signatures
-			dssTransform = new DSSTransform();
-			dssTransform.setAlgorithm("http://www.w3.org/TR/1999/REC-xpath-19991116");
-			dssTransform.setElementName("ds:XPath");
-			// TODO: (Bob: 2014 Feb 18) xPathQueryHolder.XMLDSIG_NAMESPACE
-			dssTransform.setNamespace(XMLSignature.XMLNS);
-			dssTransform.setTextContent("not(ancestor-or-self::ds:Signature)");
-			dssTransformList.add(dssTransform);
-			dssReference.setTransforms(dssTransformList);
-
-			references.add(dssReference);
-		}
-		return references;
+		return dssReferences;
 	}
 
 	public void setReferences(List<DSSReference> references) {
-		this.references = references;
+		this.dssReferences = references;
 	}
 
 	/**
@@ -566,12 +583,58 @@ public class SignatureParameters {
 		return aSiCParams;
 	}
 
-	public DigestAlgorithm getTimestampDigestAlgorithm() {
-		return timestampDigestAlgorithm;
+	public TimestampParameters getSignatureTimestampParameters() {
+		if (signatureTimestampParameters == null) {
+			return new TimestampParameters();
+		}
+		return signatureTimestampParameters;
 	}
 
-	public void setTimestampDigestAlgorithm(final DigestAlgorithm timestampDigestAlgorithm) {
-		this.timestampDigestAlgorithm = timestampDigestAlgorithm;
+	public void setSignatureTimestampParameters(TimestampParameters signatureTimestampParameters) {
+		this.signatureTimestampParameters = signatureTimestampParameters;
+	}
+
+	public TimestampParameters getArchiveTimestampParameters() {
+		if (archiveTimestampParameters == null) {
+			return new TimestampParameters();
+		}
+		return archiveTimestampParameters;
+	}
+
+	public void setArchiveTimestampParameters(TimestampParameters archiveTimestampParameters) {
+		this.archiveTimestampParameters = archiveTimestampParameters;
+	}
+
+	public TimestampParameters getContentTimestampParameters() {
+		return contentTimestampParameters;
+	}
+
+	public void setContentTimestampParameters(TimestampParameters contentTimestampParameters) {
+		this.contentTimestampParameters = contentTimestampParameters;
+	}
+
+	public String getXPathLocationString() {
+		return xPathLocationString;
+	}
+
+	public void setXPathLocationString(String xPathLocationString) {
+		this.xPathLocationString = xPathLocationString;
+	}
+
+	public XPathQueryHolder getToCountersignXPathQueryHolder() {
+		return toCountersignXPathQueryHolder;
+	}
+
+	public void setToCountersignXPathQueryHolder(XPathQueryHolder toCountersignXPathQueryHolder) {
+		this.toCountersignXPathQueryHolder = toCountersignXPathQueryHolder;
+	}
+
+	public String getToCounterSignSignatureValueId() {
+		return toCounterSignSignatureValueId;
+	}
+
+	public void setToCounterSignSignatureValueId(String toCounterSignSignatureValueId) {
+		this.toCounterSignSignatureValueId = toCounterSignSignatureValueId;
 	}
 
 	@Override
@@ -588,16 +651,18 @@ public class SignatureParameters {
 			  ", signatureAlgorithm=" + signatureAlgorithm +
 			  ", encryptionAlgorithm=" + encryptionAlgorithm +
 			  ", digestAlgorithm=" + digestAlgorithm +
-			  ", references=" + references +
+			  ", references=" + dssReferences +
 			  ", bLevelParams=" + bLevelParams +
 			  ", aSiCParams=" + aSiCParams +
 			  ", reason='" + reason + '\'' +
 			  ", contactInfo='" + contactInfo + '\'' +
 			  ", deterministicId='" + deterministicId + '\'' +
-			  ", timestampDigestAlgorithm=" + timestampDigestAlgorithm +
-			  ", archiveTimestampDigestAlgorithm=" + archiveTimestampDigestAlgorithm +
+			  ", signatureTimestampParameters=" + signatureTimestampParameters.toString() +
+			  ", archiveTimestampParameters=" + archiveTimestampParameters.toString() +
 			  ", contentTimestamps=" + contentTimestamps +
 			  ", detachedContent=" + detachedContent +
+			  ", toCountersignSignatureId=" + toCounterSignSignatureId +
+			  ", toCountersignXPathQueryHolder=" + toCountersignXPathQueryHolder.toString() +
 			  '}';
 	}
 }

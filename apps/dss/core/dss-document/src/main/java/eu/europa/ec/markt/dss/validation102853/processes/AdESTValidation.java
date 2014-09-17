@@ -301,19 +301,29 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		final List<String> rightTimestamps = new ArrayList<String>();
 
 		final List<XmlDom> timestamps = signatureXmlDom.getElements("./Timestamps/Timestamp[@Type='%s']", TimestampType.SIGNATURE_TIMESTAMP);
+		timestamps.addAll(signatureXmlDom.getElements("./Timestamps/Timestamp[@Type='%s']", TimestampType.CONTENT_TIMESTAMP));
+		timestamps.addAll(signatureXmlDom.getElements("./Timestamps/Timestamp[@Type='%s']", TimestampType.ALL_DATA_OBJECTS_TIMESTAMP));
+		timestamps.addAll(signatureXmlDom.getElements("./Timestamps/Timestamp[@Type='%s']", TimestampType.INDIVIDUAL_DATA_OBJECTS_TIMESTAMP));
 
 		boolean found = false;
+		int noContentTimestampCount = 0;
 
 		for (final XmlDom timestamp : timestamps) {
 
 			// timestampX
 			timestampId = timestamp.getValue("./@Id");
-			final String timestampType = timestamp.getValue("./@Type");
+			final String timestampTypeString = timestamp.getValue("./@Type");
+			final TimestampType timestampType = TimestampType.valueOf(timestampTypeString);
+			final boolean contentTimestamp = isContentTimestamp(timestampType);
 			final Date productionTime = timestamp.getTimeValue("./ProductionTime/text()");
+
+			if (!contentTimestamp) {
+				noContentTimestampCount++;
+			}
 
 			timestampXmlNode = signatureXmlNode.addChild(TIMESTAMP);
 			timestampXmlNode.setAttribute(ID, timestampId);
-			timestampXmlNode.setAttribute(TYPE, timestampType);
+			timestampXmlNode.setAttribute(TYPE, timestampTypeString);
 			timestampXmlNode.setAttribute(GENERATION_TIME, RuleUtils.formatDate(productionTime));
 
 			final Conclusion timestampConclusion = new Conclusion();
@@ -324,20 +334,29 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 			if (!checkMessageImprintDataIntactConstraint(timestampConclusion, timestamp)) {
 				continue;
 			}
+			if (contentTimestamp) {
 
-			found = checkTimestampValidationProcessConstraint(rightTimestamps, found, productionTime);
+				checkTimestampValidationProcessConstraint();
+			} else {
+
+				found = checkTimestampValidationProcessConstraint(rightTimestamps, found, productionTime);
+			}
 		}
 
 		// -1 means that there is no timestamps within the signature
 		//  0 means that there is no valid timestamps
-		//  1 means that there is at least on valid timestamp
-		final int validTimestampCount = timestamps.size() == 0 ? -1 : (found ? 1 : 0);
+		//  1 means that there is at least one valid timestamp
+		final int validTimestampCount = noContentTimestampCount == 0 ? -1 : (found ? 1 : 0);
 		if (!checkTimestampsValidationProcessConstraint(signatureConclusion, validTimestampCount)) {
 			return signatureConclusion;
 		}
 
 		/**
 		 * 5) Comparing times:
+		 */
+
+		/**
+		 * NOTE 2:
 		 */
 		if (INDETERMINATE.equals(bvpIndication) && REVOKED_NO_POE.equals(bvpSubIndication)) {
 
@@ -346,6 +365,9 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 			}
 		}
 
+		/**
+		 * NOTE 3:
+		 */
 		if (INDETERMINATE.equals(bvpIndication) && OUT_OF_BOUNDS_NO_POE.equals(bvpSubIndication)) {
 
 			if (!checkBestSignatureTimeBeforeIssuanceDateOfSigningCertificateConstraint(signatureConclusion)) {
@@ -356,6 +378,9 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 			}
 		}
 
+		/**
+		 * NOTE 4:
+		 */
 		if (INDETERMINATE.equals(bvpIndication) && CRYPTO_CONSTRAINTS_FAILURE_NO_POE.equals(bvpSubIndication)) {
 
 			if (!checkAlgorithmReliableAtBestSignatureTimeConstraint(signatureConclusion)) {
@@ -363,7 +388,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 			}
 		}
 
-		if (!checkTimestampCoherenceConstraint(signatureConclusion, rightTimestamps, timestamps)) {
+		if (!checkTimestampCoherenceConstraint(signatureConclusion)) {
 			return signatureConclusion;
 		}
 
@@ -383,28 +408,27 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		return signatureConclusion;
 	}
 
-	/**
-	 * This method returns the latest content timestamp production date. Note that there are three different content timestamps: CONTENT_TIMESTAMP (CAdES),
-	 * ALL_DATA_OBJECTS_TIMESTAMP
-	 * (XAdES), INDIVIDUAL_DATA_OBJECTS_TIMESTAMP (XAdES).
-	 *
-	 * @return {@code Date}
-	 */
-	private Date getLatestContentTimestampProductionDate() {
+	private boolean isContentTimestamp(TimestampType timestampType) {
+		return TimestampType.ALL_DATA_OBJECTS_TIMESTAMP == timestampType || TimestampType.INDIVIDUAL_DATA_OBJECTS_TIMESTAMP == timestampType || TimestampType.CONTENT_TIMESTAMP == timestampType;
+	}
+
+	private Date getLatestTimestampProductionDate(final List<XmlDom> timestamps, final TimestampType selectedTimestampType) {
 
 
-		Date lastContentTimestampProductionDate = getLatestTimestampProductionTime(TimestampType.CONTENT_TIMESTAMP);
-		final Date lastAllDataObjectsTimestampProductionDate = getLatestTimestampProductionTime(TimestampType.ALL_DATA_OBJECTS_TIMESTAMP);
-		if (lastContentTimestampProductionDate == null || (lastAllDataObjectsTimestampProductionDate != null && lastContentTimestampProductionDate
-			  .before(lastAllDataObjectsTimestampProductionDate))) {
-			lastContentTimestampProductionDate = lastAllDataObjectsTimestampProductionDate;
+		Date latestProductionTime = null;
+		for (final XmlDom timestamp : timestamps) {
+
+			final String timestampType = timestamp.getValue("./@Type");
+			if (!selectedTimestampType.name().equals(timestampType)) {
+				continue;
+			}
+			final Date productionTime = timestamp.getTimeValue("./ProductionTime/text()");
+			if (latestProductionTime == null || latestProductionTime.before(productionTime)) {
+
+				latestProductionTime = productionTime;
+			}
 		}
-		final Date lastIndividualDataObjectsTimestampProductionDate = getLatestTimestampProductionTime(TimestampType.INDIVIDUAL_DATA_OBJECTS_TIMESTAMP);
-		if (lastContentTimestampProductionDate == null || (lastIndividualDataObjectsTimestampProductionDate != null && lastContentTimestampProductionDate
-			  .before(lastIndividualDataObjectsTimestampProductionDate))) {
-			lastContentTimestampProductionDate = lastIndividualDataObjectsTimestampProductionDate;
-		}
-		return lastContentTimestampProductionDate;
+		return latestProductionTime;
 	}
 
 	/**
@@ -417,12 +441,12 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	 * 􀀀 In all remaining cases, remove the time-stamp token from the set of signature time-stamp tokens and try
 	 * the next token.<br/>
 	 *
-	 * @param rightTimestamps
-	 * @param found
-	 * @param productionTime
+	 * @param rightTimestamps the {@code List} containing the id of valid valid timestamps
+	 * @param found           indicates if there is at least one valid timestamp
+	 * @param productionTime  the production {@code Date} of the current timestamp
 	 * @return
 	 */
-	private boolean checkTimestampValidationProcessConstraint(List<String> rightTimestamps, boolean found, Date productionTime) {
+	private boolean checkTimestampValidationProcessConstraint(final List<String> rightTimestamps, final boolean found, final Date productionTime) {
 
 		final XmlDom tspvData = timestampValidationData.getElement("/TimestampValidationData/Signature[@Id='%s']/Timestamp[@Id='%s']", signatureId, timestampId);
 		final XmlDom tsvpConclusion = tspvData.getElement("./BasicBuildingBlocks/Conclusion");
@@ -435,6 +459,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 			if (productionTime.before(bestSignatureTime)) {
 
 				constraintNode.addChild(STATUS, OK);
+
 				bestSignatureTime = productionTime;
 				constraintNode.addChild(INFO, ADEST_ITVPC_INFO_1);
 				rightTimestamps.add(timestampId);
@@ -452,57 +477,36 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		return found;
 	}
 
-	//    private Date getLastRefsOnlyTimestampProductionDate(List<String> rightTimestamps, List<XmlDom> timestamps) {
-	//
-	//        return getLatestTimestampProductionTime(rightTimestamps, timestamps, TimestampType.VALIDATION_DATA_REFSONLY_TIMESTAMP);
-	//    }
-	//
-	//    private Date getLastSigAndRefsTimestampProductionDate(List<String> rightTimestamps, List<XmlDom> timestamps) {
-	//
-	//        return getLatestTimestampProductionTime(rightTimestamps, timestamps, TimestampType.VALIDATION_DATA_TIMESTAMP);
-	//    }
-	//
-	//    private Date getLastArchiveTimestampProductionDate(List<String> rightTimestamps, List<XmlDom> timestamps) {
-	//
-	//        return getLatestTimestampProductionTime(rightTimestamps, timestamps, TimestampType.ARCHIVE_TIMESTAMP);
-	//    }
-	//
-	private Date getLatestTimestampProductionTime(final TimestampType selectedTimestampType) {
+	/**
+	 * Same as previous method, but does not add the timestamp to the list of right timestamps, and does not return any result
+	 * -> Only performs the functional validation of the timestamp
+	 *
+	 * @return
+	 */
+	private void checkTimestampValidationProcessConstraint() {
 
-		Date latestProductionTime = null;
-		final List<XmlDom> timestamps = extractTimestamp(signatureXmlDom, selectedTimestampType);
-		for (XmlDom timestamp : timestamps) {
+		final XmlDom tspvData = timestampValidationData.getElement("/TimestampValidationData/Signature[@Id='%s']/Timestamp[@Id='%s']", signatureId, timestampId);
+		final XmlDom tsvpConclusion = tspvData.getElement("./BasicBuildingBlocks/Conclusion");
+		final String tsvpIndication = tsvpConclusion.getValue("./Indication/text()");
 
-			final String category = timestamp.getValue("./@Type");
-			final TimestampType timestampType = TimestampType.valueOf(category);
-			if (!selectedTimestampType.equals(timestampType)) {
-				continue;
-			}
-			final String timestampId = timestamp.getValue("./@Id");
+		final XmlNode constraintNode = addConstraint(timestampXmlNode, ADEST_ITVPC);
 
-			final XmlDom tspvData = timestampValidationData.getElement("/TimestampValidationData/Signature[@Id='%s']/Timestamp[@Id='%s']", signatureId, timestampId);
-			final XmlDom tsvpConclusion = tspvData.getElement("./BasicBuildingBlocks/Conclusion");
-			final String tsvpIndication = tsvpConclusion.getValue("./Indication/text()");
-			if (!VALID.equals(tsvpIndication)) {
-
-				continue;
-			}
-			final Date productionTime = timestamp.getTimeValue("./ProductionTime/text()");
-			if (latestProductionTime == null || latestProductionTime.before(productionTime)) {
-
-				latestProductionTime = productionTime;
-			}
+		if (VALID.equals(tsvpIndication)) {
+			constraintNode.addChild(STATUS, OK);
+			constraintNode.addChild(INFO, ADEST_ITVPC_INFO_1);
+		} else {
+			constraintNode.addChild(STATUS, KO);
+			constraintNode.addChild(ERROR, ADEST_ITVPC_ANS_2);
 		}
-		return latestProductionTime;
 	}
 
-	private Date getEarliestTimestampProductionTime(List<String> rightTimestamps, List<XmlDom> timestamps) {
+	private Date getEarliestTimestampProductionTime(final List<XmlDom> timestamps, final TimestampType selectedTimestampType) {
 
 		Date earliestProductionTime = null;
-		for (XmlDom timestamp : timestamps) {
+		for (final XmlDom timestamp : timestamps) {
 
-			final String timestampId = timestamp.getValue("./@Id");
-			if (!rightTimestamps.contains(timestampId)) {
+			final String timestampType = timestamp.getValue("./@Type");
+			if (!selectedTimestampType.name().equals(timestampType)) {
 				continue;
 			}
 			final Date productionTime = timestamp.getTimeValue("./ProductionTime/text()");
@@ -614,7 +618,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	}
 
 	/**
-	 * Check of: is the timestamp message imprint data intact
+	 * Check of: Is the result of the timestamps validation process conclusive?
 	 *
 	 * @param conclusion          the conclusion to use to add the result of the check.
 	 * @param validTimestampCount
@@ -727,6 +731,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		}
 		constraint.create(signatureXmlNode, TSV_ISCNVABST);
 		constraint.setIndications(INDETERMINATE, OUT_OF_BOUNDS_NO_POE, TSV_ISCNVABST_ANS);
+		// false is always returned: this corresponds to: Otherwise, terminate with INDETERMINATE/OUT_OF_BOUNDS_NO_POE.
 		constraint.setValue(false);
 		final String formatedBestSignatureTime = RuleUtils.formatDate(bestSignatureTime);
 		constraint.setAttribute(BEST_SIGNATURE_TIME, formatedBestSignatureTime);
@@ -793,36 +798,114 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	 * differently by the Signature Constraints. If all the checks end successfully, go to the next step. Otherwise
 	 * return INVALID/TIMESTAMP_ORDER_FAILURE.
 	 *
-	 * @param conclusion      the conclusion to use to add the result of the check.
-	 * @param rightTimestamps
-	 * @param timestamps
+	 * @param conclusion the conclusion to use to add the result of the check.
 	 * @return false if the check failed and the process should stop, true otherwise.
 	 */
-	private boolean checkTimestampCoherenceConstraint(final Conclusion conclusion, final List<String> rightTimestamps, List<XmlDom> timestamps) {
+	private boolean checkTimestampCoherenceConstraint(final Conclusion conclusion) {
 
 		final Constraint constraint = constraintData.getTimestampCoherenceConstraint();
 		if (constraint == null) {
 			return true;
 		}
+
+		final List<XmlDom> timestamps = signatureXmlDom.getElements("./Timestamps/Timestamp");
+
+		for (int index = timestamps.size() - 1; index >= 0; index--) {
+
+			final XmlDom timestamp = timestamps.get(index);
+			String timestampId = timestamp.getValue("./@Id");
+			final XmlDom tspvData = timestampValidationData.getElement("/TimestampValidationData/Signature[@Id='%s']/Timestamp[@Id='%s']", signatureId, timestampId);
+			final XmlDom tsvpConclusion = tspvData.getElement("./BasicBuildingBlocks/Conclusion");
+			final String tsvpIndication = tsvpConclusion.getValue("./Indication/text()");
+			if (!VALID.equals(tsvpIndication)) {
+
+				timestamps.remove(index);
+			}
+		}
+		Date latestContent = getLatestTimestampProductionDate(timestamps, TimestampType.CONTENT_TIMESTAMP);
+		Date latestContent_ = getLatestTimestampProductionDate(timestamps, TimestampType.ALL_DATA_OBJECTS_TIMESTAMP);
+		latestContent = getLatestDate(latestContent, latestContent_);
+		latestContent_ = getLatestTimestampProductionDate(timestamps, TimestampType.INDIVIDUAL_DATA_OBJECTS_TIMESTAMP);
+		latestContent = getLatestDate(latestContent, latestContent_);
+
+		final Date earliestSignature = getEarliestTimestampProductionTime(timestamps, TimestampType.SIGNATURE_TIMESTAMP);
+		final Date latestSignature = getLatestTimestampProductionDate(timestamps, TimestampType.SIGNATURE_TIMESTAMP);
+
+		Date earliestValidationData = getEarliestTimestampProductionTime(timestamps, TimestampType.VALIDATION_DATA_TIMESTAMP);
+		final Date earliestValidationData_ = getEarliestTimestampProductionTime(timestamps, TimestampType.VALIDATION_DATA_REFSONLY_TIMESTAMP);
+		earliestValidationData = getEarliestDate(earliestValidationData, earliestValidationData_);
+
+		final Date earliestArchive = getEarliestTimestampProductionTime(timestamps, TimestampType.ARCHIVE_TIMESTAMP);
+
+		Date latestValidationData = getLatestTimestampProductionDate(timestamps, TimestampType.VALIDATION_DATA_TIMESTAMP);
+		final Date latestValidationData_ = getLatestTimestampProductionDate(timestamps, TimestampType.VALIDATION_DATA_REFSONLY_TIMESTAMP);
+		latestValidationData = getLatestDate(latestValidationData, latestValidationData_);
+
+		if (latestContent == null && earliestSignature == null && earliestValidationData == null && earliestArchive == null) {
+			return true;
+		}
+		boolean ok = true;
+
+		if (earliestSignature == null && (earliestValidationData != null || earliestArchive != null)) {
+			ok = false;
+		}
+
+		// Check content-timestamp against-signature timestamp
+		if (latestContent != null && earliestSignature != null) {
+			ok = ok && latestContent.before(earliestSignature);
+		}
+
+		// Check signature-timestamp against validation-data and validation-data-refs-only timestamp
+		if (latestSignature != null && earliestValidationData != null) {
+			ok = ok && latestSignature.before(earliestValidationData);
+		}
+
+		// Check archive-timestamp
+		if (latestSignature != null && earliestArchive != null) {
+			ok = ok && earliestArchive.after(latestSignature);
+		}
+
+		if (latestValidationData != null && earliestArchive != null) {
+			ok = ok && earliestArchive.after(latestValidationData);
+		}
+
 		constraint.create(signatureXmlNode, TSV_ASTPTCT);
 		constraint.setIndications(INVALID, TIMESTAMP_ORDER_FAILURE, TSV_ASTPTCT_ANS);
 
-		final Date latestContentTimestampProductionDate = getLatestContentTimestampProductionDate();
-		final Date earliestSignatureTimestampProductionDate = getEarliestTimestampProductionTime(rightTimestamps, timestamps);
-
-		final boolean noContentTimestamp = latestContentTimestampProductionDate == null;
-		boolean ok = noContentTimestamp || latestContentTimestampProductionDate.before(earliestSignatureTimestampProductionDate);
 		constraint.setValue(ok);
-		if (!noContentTimestamp) {
 
-			final String formatedLatestContentTimestampProductionDate = RuleUtils.formatDate(latestContentTimestampProductionDate);
-			final String formatedEarliestSignatureTimestampProductionDate = RuleUtils.formatDate(earliestSignatureTimestampProductionDate);
-			constraint.setAttribute(LATEST_CONTENT_TIMESTAMP_PRODUCTION_TIME, formatedLatestContentTimestampProductionDate);
-			constraint.setAttribute(EARLIEST_SIGNATURE_TIMESTAMP_PRODUCTION_TIME, formatedEarliestSignatureTimestampProductionDate);
-		}
+		final String formattedLatestContentTimestampProductionDate = RuleUtils.formatDate(latestContent);
+		final String formattedEarliestSignatureTimestampProductionDate = RuleUtils.formatDate(earliestSignature);
+		constraint.setAttribute(LATEST_CONTENT_TIMESTAMP_PRODUCTION_TIME, formattedLatestContentTimestampProductionDate);
+		constraint.setAttribute(EARLIEST_SIGNATURE_TIMESTAMP_PRODUCTION_TIME, formattedEarliestSignatureTimestampProductionDate);
+
 		constraint.setConclusionReceiver(conclusion);
 
 		return constraint.check();
+	}
+
+	private static Date getLatestDate(Date firstDate, final Date secondDate) {
+
+		if (firstDate != null && secondDate != null) {
+			if (firstDate.before(secondDate)) {
+				firstDate = secondDate;
+			}
+		} else if (secondDate != null) {
+			firstDate = secondDate;
+		}
+		return firstDate;
+	}
+
+	private static Date getEarliestDate(Date firstDate, final Date secondDate) {
+
+		if (firstDate != null && secondDate != null) {
+			if (firstDate.after(secondDate)) {
+				firstDate = secondDate;
+			}
+		} else if (secondDate != null) {
+			firstDate = secondDate;
+		}
+		return firstDate;
 	}
 
 	/**
@@ -877,19 +960,5 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		constraint.setConclusionReceiver(conclusion);
 
 		return constraint.check();
-	}
-
-	/**
-	 * This method extracts all timestamps of the given type from the {@code XmlDom} signature representation and returns them as a {@code List}
-	 *
-	 * @param signature     {@code XmlDom} representation of the signature
-	 * @param timestampType
-	 * @return
-	 */
-	private List<XmlDom> extractTimestamp(final XmlDom signature, final TimestampType timestampType) {
-
-		final String xPath = "./Timestamps/Timestamp[@Type='%s']";
-		final List<XmlDom> timestamps = signature.getElements(xPath, timestampType);
-		return timestamps;
 	}
 }

@@ -28,7 +28,7 @@ import org.bouncycastle.cert.ocsp.BasicOCSPResp;
  * The validation of a certificate may require the use of OCSP information. Theses information can be provided by multiple sources
  * (the signature itself, online OCSP server, ...). This interface provides an abstraction for a source of OCSPResp
  *
- * @version $Revision: 4230 $ - $Date: 2014-07-11 11:57:59 +0200 (Fri, 11 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public interface OCSPSource {

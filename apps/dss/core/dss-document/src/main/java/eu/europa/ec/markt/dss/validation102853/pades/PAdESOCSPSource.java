@@ -35,7 +35,7 @@ import eu.europa.ec.markt.dss.validation102853.ocsp.OfflineOCSPSource;
 /**
  * OCSPSource that retrieves the OCSPResp from a PAdES Signature
  *
- * @version $Revision: 3964 $ - $Date: 2014-05-23 17:19:22 +0200 (Fri, 23 May 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public class PAdESOCSPSource extends OfflineOCSPSource {

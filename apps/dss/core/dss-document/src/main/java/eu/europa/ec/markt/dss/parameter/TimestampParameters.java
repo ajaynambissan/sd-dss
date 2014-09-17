@@ -21,6 +21,8 @@ package eu.europa.ec.markt.dss.parameter;
 
 import java.util.ArrayList;
 import java.util.List;
+import javax.xml.crypto.dsig.CanonicalizationMethod;
+import eu.europa.ec.markt.dss.DSSXMLUtils;
 import eu.europa.ec.markt.dss.DigestAlgorithm;
 
 /**
@@ -29,43 +31,19 @@ import eu.europa.ec.markt.dss.DigestAlgorithm;
  */
 public class TimestampParameters {
 
-    private List<ContentTimestampReference> references;
-
-    /**
-     * The digest value for the timestamp
-     */
-    private byte[] digest;
-
 	/**
 	 * The digest algorithm to provide to the timestamping authority
 	 */
 	private DigestAlgorithm digestAlgorithm;
 	private String canonicalizationMethod;
 
-	public List<ContentTimestampReference> getReferences() {
-        return references;
-    }
-
-    public void setReferences(final List<ContentTimestampReference> references) {
-        this.references = references;
-    }
-
-    public void addReference(final ContentTimestampReference reference) {
-        if (references == null) {
-            references = new ArrayList<ContentTimestampReference>();
-        }
-        references.add(reference);
-    }
-
-	public byte[] getDigest() {
-		return digest;
-	}
-
-	public void setDigest(final byte[] digest) {
-		this.digest = digest;
-	}
 
 	public DigestAlgorithm getDigestAlgorithm() {
+
+		//TODO-Vincent (7/8/2014): This is a temporary measure, returning the previous default value in case the digest algorithm was not specified by the user.
+		if (digestAlgorithm == null) {
+			return DigestAlgorithm.SHA256;
+		}
 		return digestAlgorithm;
 	}
 
@@ -74,10 +52,22 @@ public class TimestampParameters {
 	}
 
 	public String getCanonicalizationMethod() {
+
+		//TODO-Vincent (7/8/2014): This is a temporary measure, returning the previous default value in case the digest algorithm was not specified by the user.
+		if (canonicalizationMethod == null) {
+			return CanonicalizationMethod.EXCLUSIVE;
+		}
 		return canonicalizationMethod;
 	}
 
 	public void setCanonicalizationMethod(String canonicalizationMethod) {
 		this.canonicalizationMethod = canonicalizationMethod;
+	}
+
+	public String toString() {
+		return "TimestampParameters{" +
+				", digestAlgorithm=" + digestAlgorithm.getName() +
+				", canonicalizationMethod=" + canonicalizationMethod +
+				"}";
 	}
 }

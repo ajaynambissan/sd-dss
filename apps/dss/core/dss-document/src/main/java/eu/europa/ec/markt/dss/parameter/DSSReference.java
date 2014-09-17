@@ -23,6 +23,9 @@ package eu.europa.ec.markt.dss.parameter;
 import java.util.ArrayList;
 import java.util.List;
 
+import eu.europa.ec.markt.dss.DigestAlgorithm;
+import eu.europa.ec.markt.dss.signature.DSSDocument;
+
 /**
  * TODO
  * <p/>
@@ -37,7 +40,9 @@ public class DSSReference {
 	private String uri;
 	private String type;
 
-	private String digestMethod;
+	private DigestAlgorithm digestMethod;
+
+	private DSSDocument contents;
 
 	private List<DSSTransform> transforms;
 
@@ -45,6 +50,24 @@ public class DSSReference {
 	 * The default constructor
 	 */
 	public DSSReference() {
+	}
+
+	public DSSReference(final DSSReference reference) {
+
+		id = reference.id;
+		uri = reference.uri;
+		type = reference.type;
+		digestMethod = reference.digestMethod;
+		contents = reference.contents;
+		if (reference.transforms != null && reference.transforms.size() > 0) {
+
+			transforms = new ArrayList<DSSTransform>();
+			for (final DSSTransform transform : transforms) {
+
+				final DSSTransform dssTransform = new DSSTransform(transform);
+				transforms.add(dssTransform);
+			}
+		}
 	}
 
 	public String getId() {
@@ -71,11 +94,11 @@ public class DSSReference {
 		this.type = type;
 	}
 
-	public String getDigestMethod() {
+	public DigestAlgorithm getDigestMethodAlgorithm() {
 		return digestMethod;
 	}
 
-	public void setDigestMethod(String digestMethod) {
+	public void setDigestMethodAlgorithm(DigestAlgorithm digestMethod) {
 		this.digestMethod = digestMethod;
 	}
 
@@ -87,13 +110,23 @@ public class DSSReference {
 		this.transforms = transforms;
 	}
 
+	public DSSDocument getContents() {
+		return contents;
+	}
+
+	public void setContents(DSSDocument contents) {
+		this.contents = contents;
+	}
+
+
 	@Override
 	public String toString() {
 		return "DSSReference{" +
 			  "id='" + id + '\'' +
 			  ", uri='" + uri + '\'' +
 			  ", type='" + type + '\'' +
-			  ", digestMethod='" + digestMethod + '\'' +
+			  ", digestMethod='" + (digestMethod != null ? digestMethod.getName() : digestMethod) + '\'' +
+			  ", contents=" + (contents != null ? contents.toString() : contents) +
 			  ", transforms=" + transforms +
 			  '}';
 	}

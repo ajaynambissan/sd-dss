@@ -28,7 +28,7 @@ import eu.europa.ec.markt.dss.exception.DSSException;
 /**
  * Connection through available API to the SSCD (SmartCard, MSCAPI, PKCS#12)
  *
- * @version $Revision: 4263 $ - $Date: 2014-07-14 14:04:54 +0200 (Mon, 14 Jul 2014) $
+ * @version $Revision$ - $Date$
  */
 
 public interface SignatureTokenConnection {

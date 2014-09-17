@@ -23,15 +23,15 @@ package eu.europa.ec.markt.dss.signature.pades;
 import java.util.Hashtable;
 import java.util.Map;
 
-import org.bouncycastle.asn1.DERObjectIdentifier;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.CMSAttributes;
 import org.bouncycastle.cms.CMSAttributeTableGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.parameter.SignatureParameters;
-import eu.europa.ec.markt.dss.signature.DSSDocument;
 import eu.europa.ec.markt.dss.signature.cades.CAdESLevelBaselineB;
 
 /**
@@ -42,7 +42,7 @@ import eu.europa.ec.markt.dss.signature.cades.CAdESLevelBaselineB;
 
 class PAdESLevelBaselineB {
 
-	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PAdESLevelBaselineB.class);
+	private static final Logger LOG = LoggerFactory.getLogger(PAdESLevelBaselineB.class);
 
 	AttributeTable getSignedAttributes(Map params, CAdESLevelBaselineB cadesProfile, SignatureParameters parameters, byte[] messageDigest) {
 
@@ -50,7 +50,7 @@ class PAdESLevelBaselineB {
 
 		if (signedAttributes.get(CMSAttributes.contentType) == null) {
 
-			DERObjectIdentifier contentType = (DERObjectIdentifier) params.get(CMSAttributeTableGenerator.CONTENT_TYPE);
+			ASN1ObjectIdentifier contentType = (ASN1ObjectIdentifier) params.get(CMSAttributeTableGenerator.CONTENT_TYPE);
 
 			// contentType will be null if we're trying to generate a counter signature.
 			if (contentType != null) {

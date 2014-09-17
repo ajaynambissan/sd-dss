@@ -80,7 +80,6 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERBMPString;
 import org.bouncycastle.asn1.DERIA5String;
-import org.bouncycastle.asn1.DERObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERT61String;
@@ -94,6 +93,7 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AccessDescription;
 import org.bouncycastle.asn1.x509.AuthorityInformationAccess;
 import org.bouncycastle.asn1.x509.Certificate;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.IssuerSerial;
@@ -487,8 +487,7 @@ public final class DSSUtils {
 	 * @param input    the {@code InputStream} to read from
 	 * @param output   the {@code Writer} to write to
 	 * @param encoding the encoding to use, null means platform default
-	 * @throws NullPointerException if the input or output is null
-	 * @throws java.io.IOException  if an I/O error occurs
+	 * @throws DSSException if the input or output is null
 	 * @since Commons IO 1.1
 	 */
 	public static void copy(InputStream input, Writer output, String encoding) throws DSSException {
@@ -550,8 +549,7 @@ public final class DSSUtils {
 	 * @throws java.io.IOException  if an I/O error occurs
 	 * @since Commons IO 1.3
 	 */
-	private
-	static long copyLarge(Reader input, Writer output) throws DSSException {
+	private static long copyLarge(Reader input, Writer output) throws DSSException {
 		try {
 			char[] buffer = new char[DEFAULT_BUFFER_SIZE];
 			long count = 0;
@@ -750,10 +748,8 @@ public final class DSSUtils {
 
 	/**
 	 * This method loads a certificate from the given location. The certificate must be DER-encoded and may be supplied in binary or printable (Base64) encoding. If the
-	 * certificate
-	 * is provided in Base64 encoding, it must be bounded at the beginning by -----BEGIN CERTIFICATE-----, and must be bounded at the end by -----END CERTIFICATE-----. It throws
-	 * an
-	 * {@code DSSException} or return {@code null} when the certificate cannot be loaded.
+	 * certificate is provided in Base64 encoding, it must be bounded at the beginning by -----BEGIN CERTIFICATE-----, and must be bounded at the end by -----END CERTIFICATE-----.
+	 * It throws an {@code DSSException} or return {@code null} when the certificate cannot be loaded.
 	 *
 	 * @param inputStream input stream containing the certificate
 	 * @return
@@ -855,24 +851,13 @@ public final class DSSUtils {
 		} catch (Exception e) {
 			throw new DSSException(e);
 		}
-		//        try {
-		//            final byte[] extensionValue = x509Certificate.getExtensionValue("2.5.29.14");
-		//            if (extensionValue == null) {
-		//                return null;
-		//            }
-		//            ASN1OctetString str = ASN1OctetString.getInstance(new ASN1InputStream(new ByteArrayInputStream(extensionValue)).readObject());
-		//            SubjectKeyIdentifier keyId = SubjectKeyIdentifier.getInstance(new ASN1InputStream(new ByteArrayInputStream(str.getOctets())).readObject());
-		//            return keyId.getKeyIdentifier();
-		//        } catch (IOException e) {
-		//            throw new DSSException(e);
-		//        }
 	}
 
-	private static String getAccessLocation(final X509Certificate certificate, final DERObjectIdentifier accessMethod) {
+	private static String getAccessLocation(final X509Certificate certificate, final ASN1ObjectIdentifier accessMethod) {
 
 		try {
 
-			final byte[] authInfoAccessExtensionValue = certificate.getExtensionValue(X509Extension.authorityInfoAccess.getId());
+			final byte[] authInfoAccessExtensionValue = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
 			if (null == authInfoAccessExtensionValue) {
 				return null;
 			}
@@ -2527,9 +2512,9 @@ public final class DSSUtils {
 	/**
 	 * This method returns an UTC date base on the year, the month and the day. The year must be encoded as 1978... and not 78
 	 *
-	 * @param year  the year
-	 * @param month the month
-	 * @param day   the day
+	 * @param year  the value used to set the YEAR calendar field.
+	 * @param month the month. Month value is 0-based. e.g., 0 for January.
+	 * @param day   the value used to set the DAY_OF_MONTH calendar field.
 	 * @return the UTC date base on parameters
 	 */
 	public static Date getUtcDate(final int year, final int month, final int day) {
@@ -2720,8 +2705,9 @@ public final class DSSUtils {
 
 			string = ((DERT61UTF8String) attributeValue).getString();
 		} else {
-			string = attributeValue.getClass().getSimpleName();
-			LOG.error("!!!*******!!! This encoding is unknown: " + string);
+			LOG.error("!!!*******!!! This encoding is unknown: " + attributeValue.getClass().getSimpleName());
+			string = attributeValue.toString();
+			LOG.error("!!!*******!!! value: " + string);
 		}
 		return string;
 	}
@@ -2999,7 +2985,7 @@ public final class DSSUtils {
 	}
 
 	/**
-	 * This method lists all defined secutity providers.
+	 * This method lists all defined security providers.
 	 */
 	public static void printSecurityProvides() {
 
@@ -3012,6 +2998,53 @@ public final class DSSUtils {
 
 				System.out.println("\tALGORITHM: " + service.getAlgorithm() + " / " + service.getType() + " / " + service.getClassName());
 			}
+		}
+	}
+
+	/**
+	 * This method return the summary of the given exception. The analysis of the stack trace stops when the provided class is found.
+	 *
+	 * @param exception {@code Exception} to summarize
+	 * @param javaClass {@code Class}
+	 * @return {@code String} containing the summary message
+	 */
+	public static String getSummaryMessage(final Exception exception, final Class<?> javaClass) {
+
+		final String javaClassName = javaClass.getName();
+		final StackTraceElement[] stackTrace = exception.getStackTrace();
+		String message = "See log file for full stack trace.\n";
+		message += exception.toString() + '\n';
+		for (int ii = 0; ii < stackTrace.length; ii++) {
+
+			final String className = stackTrace[ii].getClassName();
+			if (className.equals(javaClassName)) {
+
+				message += stackTrace[ii].toString() + '\n';
+				break;
+			}
+			message += stackTrace[ii].toString() + '\n';
+		}
+		return message;
+	}
+
+	/**
+	 * Reads maximum {@code headerLength} bytes from {@code dssDocument} to the given {@code byte} array.
+	 *
+	 * @param dssDocument          {@code DSSDocument} to read
+	 * @param headerLength         {@code int}: maximum number of bytes to read
+	 * @param destinationByteArray destination {@code byte} array
+	 * @return
+	 */
+	public static int readToArray(final DSSDocument dssDocument, final int headerLength, final byte[] destinationByteArray) {
+
+		final InputStream inputStream = dssDocument.openStream();
+		try {
+			int read = inputStream.read(destinationByteArray, 0, headerLength);
+			return read;
+		} catch (IOException e) {
+			throw new DSSException(e);
+		} finally {
+			closeQuietly(inputStream);
 		}
 	}
 }

@@ -24,7 +24,7 @@ package eu.europa.ec.markt.dss.signature.pdf;
  * 
  * Callback used by the PDFSignatureService to validate a specific PDF signature. 
  * 
- * @version $Revision: 3164 $ - $Date: 2013-12-10 15:04:14 +0100 (Tue, 10 Dec 2013) $
+ * @version $Revision$ - $Date$
  */
 public interface SignatureValidationCallback {
 

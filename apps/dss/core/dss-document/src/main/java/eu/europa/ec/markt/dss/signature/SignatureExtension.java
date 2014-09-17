@@ -31,7 +31,7 @@ import eu.europa.ec.markt.dss.parameter.SignatureParameters;
  * Extends the level of AdES signature of a document. After level -B, going upper in the signature format level
  * consists of adding unsigned properties to the signature. It can be done without breaking the signature.
  *
- * @version $Revision: 2815 $ - $Date: 2013-10-28 15:38:50 +0100 (Mon, 28 Oct 2013) $
+ * @version $Revision$ - $Date$
  */
 
 public interface SignatureExtension {
