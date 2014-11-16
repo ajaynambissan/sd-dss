@@ -21,6 +21,7 @@
 package eu.europa.ec.markt.dss.signature.pades;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -98,7 +99,9 @@ public class PAdESService extends AbstractSignatureService {
 		final CustomContentSigner customContentSigner = new CustomContentSigner(signatureAlgorithm.getJCEId());
 
 		final PDFSignatureService pdfSignatureService = PdfObjFactory.getInstance().newPAdESSignatureService();
-		final byte[] messageDigest = pdfSignatureService.digest(toSignDocument.openStream(), parameters, parameters.getDigestAlgorithm());
+		final InputStream inputStream = toSignDocument.openStream();
+		final byte[] messageDigest = pdfSignatureService.digest(inputStream, parameters, parameters.getDigestAlgorithm());
+		DSSUtils.closeQuietly(inputStream);
 
 		SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = padesCMSSignedDataBuilder.getSignerInfoGeneratorBuilder(parameters, messageDigest);
 
@@ -121,7 +124,9 @@ public class PAdESService extends AbstractSignatureService {
 			final CustomContentSigner customContentSigner = new CustomContentSigner(signatureAlgorithm.getJCEId(), signatureValue);
 
 			final PDFSignatureService pdfSignatureService = PdfObjFactory.getInstance().newPAdESSignatureService();
-			final byte[] messageDigest = pdfSignatureService.digest(toSignDocument.openStream(), parameters, parameters.getDigestAlgorithm());
+			InputStream inputStream = toSignDocument.openStream();
+			final byte[] messageDigest = pdfSignatureService.digest(inputStream, parameters, parameters.getDigestAlgorithm());
+			DSSUtils.closeQuietly(inputStream);
 
 			final SignerInfoGeneratorBuilder signerInfoGeneratorBuilder = padesCMSSignedDataBuilder.getSignerInfoGeneratorBuilder(parameters, messageDigest);
 
@@ -138,15 +143,16 @@ public class PAdESService extends AbstractSignatureService {
 				data = cadesLevelBaselineT.extendCMSSignatures(data, parameters);
 			}
 
-			final ByteArrayOutputStream output = new ByteArrayOutputStream();
+			final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 			final byte[] encodedData = DSSASN1Utils.getEncoded(data);
-			pdfSignatureService.sign(toSignDocument.openStream(), encodedData, output, parameters, parameters.getDigestAlgorithm());
-
+			inputStream = toSignDocument.openStream();
+			pdfSignatureService.sign(inputStream, encodedData, byteArrayOutputStream, parameters, parameters.getDigestAlgorithm());
+			DSSUtils.closeQuietly(inputStream);
 			final DSSDocument signature;
 			if (DSSUtils.isEmpty(toSignDocument.getName())) {
-				signature = new InMemoryDocument(output.toByteArray(), null, MimeType.PDF);
+				signature = new InMemoryDocument(byteArrayOutputStream.toByteArray(), null, MimeType.PDF);
 			} else {
-				signature = new InMemoryDocument(output.toByteArray(), toSignDocument.getName(), MimeType.PDF);
+				signature = new InMemoryDocument(byteArrayOutputStream.toByteArray(), toSignDocument.getName(), MimeType.PDF);
 			}
 
 			final SignatureExtension extension = getExtensionProfile(parameters);

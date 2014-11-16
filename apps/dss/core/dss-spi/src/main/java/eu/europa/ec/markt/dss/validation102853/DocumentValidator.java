@@ -10,6 +10,7 @@ import org.w3c.dom.Document;
 
 import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
+import eu.europa.ec.markt.dss.validation102853.policy.ValidationPolicy;
 import eu.europa.ec.markt.dss.validation102853.report.Reports;
 
 /**
@@ -25,7 +26,7 @@ public interface DocumentValidator {
 	/**
 	 * The document to validate, in the case of ASiC container this method returns the signature.
 	 *
-	 * @return
+	 * @return {@code DSSDocument}
 	 */
 	DSSDocument getDocument();
 
@@ -43,6 +44,11 @@ public interface DocumentValidator {
 	 */
 	List<AdvancedSignature> getSignatures();
 
+	/**
+	 * Provides a {@code CertificateVerifier} to be used during the validation process.
+	 *
+	 * @param certVerifier {@code CertificateVerifier}
+	 */
 	void setCertificateVerifier(final CertificateVerifier certVerifier);
 
 	/**
@@ -118,6 +124,14 @@ public interface DocumentValidator {
 	 * @return
 	 */
 	Reports validateDocument(final Document validationPolicyDom);
+
+	/**
+	 * Validates the document and all its signatures. The {@code validationPolicy} contains the constraint file. If null or empty the default file is used.
+	 *
+	 * @param validationPolicy {@code ValidationPolicy}
+	 * @return
+	 */
+	Reports validateDocument(final ValidationPolicy validationPolicy);
 
 	/**
 	 * This method returns always {@code null} in case of the no ASiC containers.

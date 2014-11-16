@@ -62,9 +62,9 @@ public class TimestampService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TimestampService.class);
 
-	private TSPSource tspSource;
-	private CertificatePool certificatePool;
-	private XPathQueryHolder xPathQueryHolder;
+	private final TSPSource tspSource;
+	private final CertificatePool certificatePool;
+	private final XPathQueryHolder xPathQueryHolder;
 	private final CommonCertificateVerifier commonCertificateVerifier = new CommonCertificateVerifier(true);
 
 
@@ -155,11 +155,8 @@ public class TimestampService {
 		//2. Build temporary signature structure
 		final XAdESLevelBaselineB levelBaselineB = new XAdESLevelBaselineB(commonCertificateVerifier);
 
-
 		byte[] signatureValueBytes = DSSUtils.base64Decode(fakeSignatureValue);
 		final DSSDocument fullSignature = levelBaselineB.signDocument(toSignDocument, signatureParameters, signatureValueBytes);
-
-		//		System.out.println(new String(fullSignature.getBytes()));
 
 		final List<Reference> references = getReferencesFromValidatedSignature(toSignDocument, fullSignature);
 
@@ -185,7 +182,7 @@ public class TimestampService {
 	private byte[] concatenateReferencesAsByteArray(final List<Reference> references) {
 
 		LOG.debug("Building ContentTimestamp - Concatenating references...");
-		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
 		for (final Reference reference : references) {
 			//References of type "SignedProperties" are excluded
@@ -252,7 +249,7 @@ public class TimestampService {
 			LOG.trace("Digest to timestamp: " + DSSUtils.base64Encode(digest));
 		}
 		final TimeStampToken timeStampResponse = tspSource.getTimeStampResponse(digestAlgorithm, digest);
-		TimestampToken token = new TimestampToken(timeStampResponse, timestampType, certificatePool);
+		final TimestampToken token = new TimestampToken(timeStampResponse, timestampType, certificatePool);
 
 		token.setCanonicalizationMethod(contentTimestampParameters.getCanonicalizationMethod());
 
@@ -284,15 +281,13 @@ public class TimestampService {
 	/**
 	 * @param toSignDocument
 	 * @param signature
-	 * @param commonCertificateVerifier
 	 * @return
 	 */
-	private SignedDocumentValidator validateTemporarySignature(final DSSDocument toSignDocument, final DSSDocument signature,
-	                                                           final CommonCertificateVerifier commonCertificateVerifier) {
+	private SignedDocumentValidator validateTemporarySignature(final DSSDocument toSignDocument, final DSSDocument signature) {
 
-		SignedDocumentValidator validator = XMLDocumentValidator.fromDocument(signature);
+		final SignedDocumentValidator validator = XMLDocumentValidator.fromDocument(signature);
 		validator.setCertificateVerifier(commonCertificateVerifier);
-		List<DSSDocument> detachedContents = new ArrayList<DSSDocument>();
+		final List<DSSDocument> detachedContents = new ArrayList<DSSDocument>();
 		detachedContents.add(toSignDocument);
 		validator.setDetachedContents(detachedContents);
 
@@ -308,7 +303,7 @@ public class TimestampService {
 	 */
 	private List<Reference> getReferencesFromValidatedSignature(final DSSDocument toSignDocument, final DSSDocument signature) {
 
-		final SignedDocumentValidator validator = validateTemporarySignature(toSignDocument, signature, commonCertificateVerifier);
+		final SignedDocumentValidator validator = validateTemporarySignature(toSignDocument, signature);
 		// validator.validateDocument();
 		final List<AdvancedSignature> signatures = validator.getSignatures();
 		final XAdESSignature xAdESSignature = (XAdESSignature) signatures.get(0);
@@ -325,9 +320,9 @@ public class TimestampService {
 	 * @param token      the timestamp token to which the includes must be added
 	 * @return the updated Timestamp token, containing the set of Includes
 	 */
-	private TimestampToken addTimestampTokenIncludes(List<DSSReference> references, TimestampToken token) {
+	private TimestampToken addTimestampTokenIncludes(final List<DSSReference> references, final TimestampToken token) {
 
-		List<TimestampInclude> includes = new ArrayList<TimestampInclude>();
+		final List<TimestampInclude> includes = new ArrayList<TimestampInclude>();
 		for (DSSReference reference : references) {
 
 			TimestampInclude include = new TimestampInclude(reference.getUri(), "true");

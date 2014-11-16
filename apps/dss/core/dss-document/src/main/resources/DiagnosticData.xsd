@@ -9,6 +9,7 @@
 				<xs:element name="Signature" maxOccurs="unbounded" minOccurs="0">
 					<xs:complexType>
 						<xs:sequence>
+							<xs:element type="xs:string" name="ParentId" minOccurs="0"/>
 							<xs:element type="xs:string" name="ErrorMessage" minOccurs="0"/>
 							<xs:element type="xs:dateTime" name="DateTime"/>
 							<xs:element type="xs:string" name="SignatureFormat"/>
@@ -76,6 +77,7 @@
 							</xs:element>
 						</xs:sequence>
 						<xs:attribute type="xs:string" name="Id" use="required"/>
+						<xs:attribute type="xs:string" name="Type" use="optional"/>
 					</xs:complexType>
 				</xs:element>
 				<xs:element name="UsedCertificates">
@@ -94,6 +96,7 @@
 										<xs:element type="xs:int" name="PublicKeySize"/>
 										<xs:element type="xs:string" name="PublicKeyEncryptionAlgo"/>
 
+										<xs:element type="xs:string" name="KeyUsage" minOccurs="0"/>
 										<xs:element type="xs:boolean" name="IdKpOCSPSigning" minOccurs="0"/>
 										<xs:element type="xs:boolean" name="IdPkixOcspNoCheck" minOccurs="0"/>
 										<xs:element type="xs:boolean" name="ExpiredCertOnCRL" minOccurs="0"/>
@@ -155,11 +158,11 @@
 	</xs:complexType>
 	<xs:complexType name="SigningCertificateType">
 		<xs:sequence>
-			<xs:element type="xs:boolean" name="AttributePresent"/>
-			<xs:element type="xs:boolean" name="DigestValuePresent"/>
-			<xs:element type="xs:boolean" name="DigestValueMatch"/>
-			<xs:element type="xs:boolean" name="IssuerSerialMatch"/>
-			<xs:element type="xs:string" name="Signed"/>
+			<xs:element type="xs:boolean" name="AttributePresent" minOccurs="0"/>
+			<xs:element type="xs:boolean" name="DigestValuePresent" minOccurs="0"/>
+			<xs:element type="xs:boolean" name="DigestValueMatch" minOccurs="0"/>
+			<xs:element type="xs:boolean" name="IssuerSerialMatch" minOccurs="0"/>
+			<xs:element type="xs:string" name="Signed" minOccurs="0"/>
 		</xs:sequence>
 		<xs:attribute type="xs:int" name="Id" use="required"/>
 	</xs:complexType>
@@ -227,6 +230,8 @@
 			<xs:element type="xs:boolean" name="MessageImprintDataFound"/>
 			<xs:element type="xs:boolean" name="MessageImprintDataIntact"/>
 
+			<xs:element type="xs:string" name="CanonicalizationMethod"/>
+
 			<xs:element type="BasicSignatureType" name="BasicSignature"/>
 			<xs:element type="SigningCertificateType" name="SigningCertificate"/>
 			<xs:element type="CertificateChainType" name="CertificateChain"/>
@@ -237,7 +242,7 @@
 		<xs:attribute type="xs:int" name="Id" use="required"/>
 		<xs:attribute type="xs:string" name="Type" use="required"/>
 	</xs:complexType>
-  <xs:complexType name="TrustedServiceProviderType">
+	<xs:complexType name="TrustedServiceProviderType">
 		<xs:sequence>
 			<xs:element type="xs:string" name="TSPName"/>
 			<xs:element type="xs:string" name="TSPServiceName"/>

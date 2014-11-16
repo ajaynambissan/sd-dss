@@ -31,7 +31,6 @@ import org.w3c.dom.Text;
 
 import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.DSSXMLUtils;
-import eu.europa.ec.markt.dss.DigestAlgorithm;
 import eu.europa.ec.markt.dss.EncryptionAlgorithm;
 import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.parameter.DSSReference;
@@ -40,6 +39,7 @@ import eu.europa.ec.markt.dss.parameter.SignatureParameters;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
 import eu.europa.ec.markt.dss.signature.DSSSignatureUtils;
 import eu.europa.ec.markt.dss.signature.InMemoryDocument;
+import eu.europa.ec.markt.dss.signature.MimeType;
 
 /**
  * This class handles the specifics of the enveloping XML signature
@@ -95,7 +95,7 @@ class EnvelopingSignatureBuilder extends SignatureBuilder {
 		reference.setType(HTTP_WWW_W3_ORG_2000_09_XMLDSIG_OBJECT);
 		reference.setUri("#o-id-1");
 		reference.setContents(detachedDocument);
-		reference.setDigestMethodAlgorithm(DigestAlgorithm.SHA1);
+		reference.setDigestMethodAlgorithm(params.getDigestAlgorithm());
 
 		final List<DSSTransform> transforms = new ArrayList<DSSTransform>();
 
@@ -148,6 +148,7 @@ class EnvelopingSignatureBuilder extends SignatureBuilder {
 
 		byte[] documentBytes = DSSXMLUtils.transformDomToByteArray(documentDom);
 		final InMemoryDocument inMemoryDocument = new InMemoryDocument(documentBytes);
+		inMemoryDocument.setMimeType(MimeType.XML);
 		return inMemoryDocument;
 	}
 }

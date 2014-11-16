@@ -1,7 +1,8 @@
 /*
  * DSS - Digital Signature Services
  *
- * Copyright (C) 2013 European Commission, Directorate-General Internal Market and Services (DG MARKT), B-1049 Bruxelles/Brussel
+ * Copyright (C) 2013 European Commission, Directorate-General Internal Market and Services (DG MARKT),
+ * B-1049 Bruxelles/Brussel
  *
  * Developed by: 2013 ARHS Developments S.A. (rue Nicolas Bové 2B, L-1253 Luxembourg) http://www.arhs-developments.com
  *
@@ -34,49 +35,104 @@ import java.util.HashMap;
 import java.util.Map;
 
 import eu.europa.ec.markt.dss.DSSUtils;
+import eu.europa.ec.markt.dss.exception.DSSException;
 
 /**
- * TODO
+ * This class allows to handle different mime types. It also allows to add (define) new mime-type.
  * <p/>
  * <p> DISCLAIMER: Project owner DG-MARKT.
  *
  * @author <a href="mailto:dgmarkt.Project-DSS@arhs-developments.com">ARHS Developments</a>
  * @version $Revision$ - $Date$
  */
-public enum MimeType {
+public class MimeType {
 
-	BINARY("application/octet-stream"), XML("text/xml"), PDF("application/pdf"), PKCS7("application/pkcs7-signature"), ASICS("application/vnd.etsi.asic-s+zip"), ASICE(
-		  "application/vnd.etsi.asic-e+zip"), TEXT("text/plain");
+	private static Map<String, MimeType> mimeTypes = new HashMap<String, MimeType>();
 
-	private String code;
+	public static final MimeType BINARY = new MimeType("application/octet-stream");
+	public static final MimeType XML = new MimeType("text/xml");
+	public static final MimeType PDF = new MimeType("application/pdf");
+	public static final MimeType PKCS7 = new MimeType("application/pkcs7-signature");
+	public static final MimeType ASICS = new MimeType("application/vnd.etsi.asic-s+zip");
+	public static final MimeType ASICE = new MimeType("application/vnd.etsi.asic-e+zip");
+	public static final MimeType TEXT = new MimeType("text/plain");
+
+	private String mimeTypeString;
 
 	private static Map<String, MimeType> fileExtensions = new HashMap<String, MimeType>() {{
+
 		put("xml", XML);
 		put("pdf", PDF);
 		put("asics", ASICS);
 		put("scs", ASICS);
 		put("asice", ASICE);
+		put("bdoc", ASICE); // estonian bdoc file type is handled as asic-e document
 		put("sce", ASICE);
 		put("txt", TEXT);
+		put("zip", ASICE); // plugtest and CZ
 	}};
 
 	/**
-	 * The default constructor for MimeTypes.
+	 * This constructor is used only by the web-services.
 	 */
-	private MimeType(final String code) {
-		this.code = code;
+	public MimeType() {
 	}
 
 	/**
-	 * @return the code
+	 * The default constructor for MimeType.
+	 *
+	 * @param mimeTypeString is a string identifier composed of two parts: a "type" and a "subtype"
 	 */
-	public String getCode() {
-		return code;
+	private MimeType(final String mimeTypeString) {
+
+		if (!mimeTypeString.matches("([\\w])*/([\\w\\-\\+\\.])*")) {
+			throw new DSSException("'" + mimeTypeString + "' is not conformant mime-type string!");
+		}
+		if (mimeTypes.get(mimeTypeString) != null) {
+			throw new DSSException("'" + mimeTypeString + "' corresponding MimeType exists already! Use #fromMimeTypeString method to obtain the corresponding object.");
+		}
+		this.mimeTypeString = mimeTypeString;
+		mimeTypes.put(mimeTypeString, this);
 	}
 
-	public static MimeType fromFileName(final String name) {
+	/**
+	 * This constructor allows to create a new MimeType related to given file extension. Be careful, if the file extension has already an associated {@code MimeType} then this
+	 * relation will be lost.
+	 *
+	 * @param mimeTypeString is a string identifier composed of two parts: a "type" and a "subtype"
+	 * @param extension      to be defined. Example: "txt", note that there is no point before the extension name.
+	 */
+	public MimeType(final String mimeTypeString, final String extension) {
 
-		final String inLowerCaseName = name.toLowerCase();
+		this(mimeTypeString);
+		fileExtensions.put(extension, this);
+	}
+
+	/**
+	 * @return the mimeTypeString
+	 */
+	public String getMimeTypeString() {
+		return mimeTypeString;
+	}
+
+	/**
+	 * This setter is used by the web-services.
+	 *
+	 * @param mimeTypeString is a string identifier composed of two parts: a "type" and a "subtype"
+	 */
+	public void setMimeTypeString(String mimeTypeString) {
+		this.mimeTypeString = mimeTypeString;
+	}
+
+	/**
+	 * This method returns the mime-type extrapolated from the file name.
+	 *
+	 * @param fileName the file name to be analysed
+	 * @return the extrapolated mime-type of the file name
+	 */
+	public static MimeType fromFileName(final String fileName) {
+
+		final String inLowerCaseName = fileName.toLowerCase();
 		final String fileExtension = DSSUtils.getFileExtension(inLowerCaseName);
 		final MimeType mimeType = fileExtensions.get(fileExtension);
 		if (mimeType != null) {
@@ -86,7 +142,7 @@ public enum MimeType {
 	}
 
 	/**
-	 * This method returns the mime-type extrapolated from the file name. In case of a zip container its content is analysed to determinate if it is an ASiC signature.
+	 * This method returns the mime-type extrapolated from the file.
 	 *
 	 * @param file the file to be analysed
 	 * @return the extrapolated mime-type of the file
@@ -98,15 +154,19 @@ public enum MimeType {
 		return mimeType;
 	}
 
-	public static MimeType fromCode(final String mimeTypeString) {
+	/**
+	 * This method returns the first representation of the {@code MimeType} corresponding to the given mime-type string.
+	 *
+	 * @param mimeTypeString is a string identifier composed of two parts: a "type" and a "subtype"
+	 * @return the extrapolated mime-type from the {@code String}
+	 */
+	public static MimeType fromMimeTypeString(final String mimeTypeString) {
 
-		for (final MimeType mimeType : values()) {
-
-			if (mimeType.code.equals(mimeTypeString)) {
-				return mimeType;
-			}
+		MimeType mimeType = mimeTypes.get(mimeTypeString);
+		if (mimeType == null) {
+			mimeType = new MimeType(mimeTypeString);
 		}
-		return null;
+		return mimeType;
 	}
 
 	/**
@@ -115,7 +175,12 @@ public enum MimeType {
 	 * @param extension to be defined. Example: "txt", note that there is no point before the extension name.
 	 */
 	public void defineFileExtension(final String extension) {
-
 		fileExtensions.put(extension, this);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+
+		return obj instanceof MimeType && mimeTypeString.equals(((MimeType) obj).mimeTypeString);
 	}
 }

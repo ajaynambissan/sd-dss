@@ -17,6 +17,8 @@
 package eu.europa.ec.markt.dss.validation102853.xades;
 
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.List;
 
 import org.apache.xml.security.Init;
@@ -63,6 +65,7 @@ public class OfflineResolver extends ResourceResolverSpi {
 		final String baseUriString = context.baseUri;
 
 		String documentUri = uriAttr.getNodeValue();
+		documentUri = decodeUrl(documentUri);
 		if (documentUri.equals("") || documentUri.startsWith("#")) {
 			return false;
 		}
@@ -93,13 +96,23 @@ public class OfflineResolver extends ResourceResolverSpi {
 		return false;
 	}
 
+	private String decodeUrl(String documentUri) {
+		try {
+			documentUri = URLDecoder.decode(documentUri, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return documentUri;
+	}
+
 	@Override
 	public XMLSignatureInput engineResolveURI(ResourceResolverContext context) throws ResourceResolverException {
 
 		final Attr uriAttr = context.attr;
 		final String baseUriString = context.baseUri;
-		String uriNodeValue = uriAttr.getNodeValue();
-		final DSSDocument document = getDocument(uriNodeValue);
+		String documentUri = uriAttr.getNodeValue();
+		documentUri = decodeUrl(documentUri);
+		final DSSDocument document = getDocument(documentUri);
 		if (document != null) {
 
 			// The input stream is closed automatically by XMLSignatureInput class
@@ -111,30 +124,57 @@ public class OfflineResolver extends ResourceResolverSpi {
 			//			final String string = new String(bytes);
 			//			inputStream = DSSUtils.toInputStream(bytes);
 			final XMLSignatureInput result = new XMLSignatureInput(inputStream);
-			result.setSourceURI(uriNodeValue);
+			result.setSourceURI(documentUri);
 			final MimeType mimeType = document.getMimeType();
 			if (mimeType != null) {
-				result.setMIMEType(mimeType.getCode());
+				result.setMIMEType(mimeType.getMimeTypeString());
 			}
 			return result;
 		} else {
 
-			Object exArgs[] = {"The uriNodeValue " + uriNodeValue + " is not configured for offline work"};
-			throw new ResourceResolverException("generic.EmptyMessage", exArgs, uriNodeValue, baseUriString);
+			Object exArgs[] = {"The uriNodeValue " + documentUri + " is not configured for offline work"};
+			throw new ResourceResolverException("generic.EmptyMessage", exArgs, documentUri, baseUriString);
 		}
 	}
 
 	private DSSDocument isKnown(final String documentUri) {
 
-		for (final DSSDocument document : documents) {
+		for (final DSSDocument dssDocument : documents) {
 
-			final String documentURI = document.getName();
-			if (documentUri.equals(documentURI)) {
+			if (isRightDocument(documentUri, dssDocument)) {
 
-				return document;
+				return dssDocument;
+			}
+			DSSDocument nextDssDocument = dssDocument.getNextDocument();
+			while (nextDssDocument != null) {
+
+				if (isRightDocument(documentUri, nextDssDocument)) {
+					return nextDssDocument;
+				}
+				nextDssDocument = nextDssDocument.getNextDocument();
 			}
 		}
 		return null;
+	}
+
+	private static boolean isRightDocument(final String documentUri, final DSSDocument document) {
+
+		final String documentUri_ = document.getName();
+		if (documentUri.equals(documentUri_)) {
+
+			return true;
+		}
+		final int length = documentUri.length();
+		final int length_ = documentUri_.length();
+		// For the file name as "/toto.txt"
+		final boolean case1 = documentUri.startsWith("/") && length - 1 == length_;
+		// For the file name as "./toto.txt"
+		final boolean case2 = documentUri.startsWith("./") && length - 2 == length_;
+		if (documentUri.endsWith(documentUri_) && (case1 || case2)) {
+
+			return true;
+		}
+		return false;
 	}
 
 	private DSSDocument getDocument(final String documentUri) {

@@ -33,9 +33,9 @@ import eu.europa.ec.markt.dss.validation102853.RuleUtils;
 import eu.europa.ec.markt.dss.validation102853.TimestampType;
 import eu.europa.ec.markt.dss.validation102853.policy.BasicValidationProcessValidConstraint;
 import eu.europa.ec.markt.dss.validation102853.policy.Constraint;
-import eu.europa.ec.markt.dss.validation102853.policy.EtsiValidationPolicy;
 import eu.europa.ec.markt.dss.validation102853.policy.ProcessParameters;
 import eu.europa.ec.markt.dss.validation102853.policy.TimestampValidationProcessValidConstraint;
+import eu.europa.ec.markt.dss.validation102853.policy.ValidationPolicy;
 import eu.europa.ec.markt.dss.validation102853.report.Conclusion;
 import eu.europa.ec.markt.dss.validation102853.rules.AttributeName;
 import eu.europa.ec.markt.dss.validation102853.rules.AttributeValue;
@@ -110,7 +110,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	 *
 	 * @return
 	 */
-	private EtsiValidationPolicy constraintData;
+	private ValidationPolicy constraintData;
 
 	// Secondary inputs
 	/**
@@ -166,7 +166,6 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	private void prepareParameters(final XmlNode mainNode, final ProcessParameters params) {
 
 		this.diagnosticData = params.getDiagnosticData();
-		this.constraintData = (EtsiValidationPolicy) params.getValidationPolicy();
 		this.currentTime = params.getCurrentTime();
 		isInitialised(mainNode, params);
 	}
@@ -182,7 +181,7 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 		if (diagnosticData == null) {
 			throw new DSSException(String.format(EXCEPTION_TCOPPNTBI, getClass().getSimpleName(), "diagnosticData"));
 		}
-		if (constraintData == null) {
+		if (params.getValidationPolicy() == null) {
 			throw new DSSException(String.format(EXCEPTION_TCOPPNTBI, getClass().getSimpleName(), "validationPolicy"));
 		}
 		if (currentTime == null) {
@@ -250,7 +249,15 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 
 			signatureXmlDom = signature;
 			signatureId = signature.getValue("./@Id");
+			final String type = signature.getValue("./@Type");
+			if (COUNTERSIGNATURE.equals(type)) {
 
+				params.setCurrentValidationPolicy(params.getCountersignatureValidationPolicy());
+			} else {
+
+				params.setCurrentValidationPolicy(params.getValidationPolicy());
+			}
+			constraintData = params.getCurrentValidationPolicy();
 			signatureXmlNode = adestValidationData.addChild(SIGNATURE);
 			signatureXmlNode.setAttribute(ID, signatureId);
 
@@ -268,12 +275,9 @@ public class AdESTValidation implements Indication, SubIndication, NodeName, Nod
 	}
 
 	/**
-	 * 2) Signature validation: Perform the validation process for BES signatures (see clause 6) with all the inputs,
-	 * including the processing of any signed attributes/properties as specified. If this validation outputs VALID,
-	 * INDETERMINATE/CRYPTO_CONSTRAINTS_FAILURE_NO_POE, INDETERMINATE/CRYPTO_CONSTRAINTS_FAILURE_NO_POE or
-	 * INDETERMINATE/OUT_OF_BOUNDS_NO_POE, go to the next step. Otherwise, terminate with the returned status and
-	 * information.<br>
-	 * TODO: 20130702 by bielecro: To notify ETSI --> There is twice CRYPTO_CONSTRAINTS_FAILURE_NO_POE instead of REVOKED_NO_POE.
+	 * 2)	Signature validation: Perform the validation process for BES signatures (see clause 6) with all the inputs, including the processing of any signed attributes/properties
+	 * as specified. If this validation outputs VALID, INDETERMINATE/CRYPTO_CONSTRAINTS_FAILURE_NO_POE, INDETERMINATE/REVOKED_NO_POE or INDETERMINATE/OUT_OF_BOUNDS_NO_POE, go to
+	 * the next step. Otherwise, terminate with the returned status and information.	 *
 	 *
 	 * @return the {@code Conclusion} which indicates the result of the process
 	 */

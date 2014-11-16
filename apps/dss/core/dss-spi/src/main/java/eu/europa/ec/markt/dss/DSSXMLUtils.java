@@ -105,6 +105,7 @@ public final class DSSXMLUtils {
 		namespaces.put("xades141", XAdESNamespaces.XAdES141);
 		namespaces.put("xades122", XAdESNamespaces.XAdES122);
 		namespaces.put("xades111", XAdESNamespaces.XAdES111);
+		namespaces.put("asic", ASiCNamespaces.ASiC);
 
 		namespacePrefixMapper = new NamespaceContextMap(namespaces);
 	}
@@ -677,6 +678,10 @@ public final class DSSXMLUtils {
 
 			final TransformerFactory transformerFactory = TransformerFactory.newInstance();
 			final Transformer transformer = transformerFactory.newTransformer();
+			final String xmlEncoding = documentDom.getXmlEncoding();
+			if (DSSUtils.isNotBlank(xmlEncoding)) {
+				transformer.setOutputProperty(OutputKeys.ENCODING, xmlEncoding);
+			}
 			final DOMSource source = new DOMSource(documentDom);
 
 			final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -700,16 +705,15 @@ public final class DSSXMLUtils {
 
 		final Text textNode = document.createTextNode(text);
 		parentDom.appendChild(textNode);
-
 	}
 
 	/**
 	 * Creates a DOM Document object of the specified type with its document element.
 	 *
-	 * @param namespaceURI
-	 * @param qualifiedName
-	 * @param element
-	 * @return
+	 * @param namespaceURI  the namespace URI of the document element to create or null
+	 * @param qualifiedName the qualified name of the document element to be created or null
+	 * @param element       document {@code Element}
+	 * @return {@code Document}
 	 */
 	public static Document createDocument(final String namespaceURI, final String qualifiedName, final Element element) {
 
@@ -727,6 +731,25 @@ public final class DSSXMLUtils {
 		return newDocument;
 	}
 
+	/**
+	 * Creates a DOM document without document element.
+	 *
+	 * @param namespaceURI  the namespace URI of the document element to create or null
+	 * @param qualifiedName the qualified name of the document element to be created or null
+	 * @return {@code Document}
+	 */
+	public static Document createDocument(final String namespaceURI, final String qualifiedName) {
+
+		DOMImplementation domImpl;
+		try {
+			domImpl = dbFactory.newDocumentBuilder().getDOMImplementation();
+		} catch (ParserConfigurationException e) {
+			throw new DSSException(e);
+		}
+
+		return domImpl.createDocument(namespaceURI, qualifiedName, null);
+	}
+
 
 	/**
 	 * Creates a DOM Document object of the specified type with its document elements.
@@ -735,7 +758,7 @@ public final class DSSXMLUtils {
 	 * @param qualifiedName
 	 * @param element1
 	 * @param element2
-	 * @return
+	 * @return {@code Document}
 	 */
 	public static Document createDocument(final String namespaceURI, final String qualifiedName, final Element element1, final Element element2) {
 
@@ -805,13 +828,13 @@ public final class DSSXMLUtils {
 	 * This method retrieves an element based on its ID
 	 *
 	 * @param currentDom the DOM in which the element has to be retrieved
-	 * @param elementId the specified ID
-	 * @param namespace the namespace to take into account
-	 * @param tagName the tagName of the element to find
+	 * @param elementId  the specified ID
+	 * @param namespace  the namespace to take into account
+	 * @param tagName    the tagName of the element to find
 	 * @return the
 	 * @throws DSSNullException
 	 */
-	public static Element getElementById (Document currentDom, String elementId, String namespace, String tagName) throws DSSNullException {
+	public static Element getElementById(Document currentDom, String elementId, String namespace, String tagName) throws DSSNullException {
 
 		Element element = null;
 		NodeList nodes = currentDom.getElementsByTagNameNS(namespace, tagName);
@@ -830,6 +853,7 @@ public final class DSSXMLUtils {
 
 	/**
 	 * This method enables a user to add a specific namespace + corresponding prefix
+	 *
 	 * @param namespace a {@code HashMap} containing the additional namespace, with the prefix as key and the namespace URI as value
 	 */
 	public static void addNamespace(HashMap<String, String> namespace) {

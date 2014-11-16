@@ -29,7 +29,6 @@ import org.w3c.dom.Text;
 
 import eu.europa.ec.markt.dss.DSSUtils;
 import eu.europa.ec.markt.dss.DSSXMLUtils;
-import eu.europa.ec.markt.dss.DigestAlgorithm;
 import eu.europa.ec.markt.dss.EncryptionAlgorithm;
 import eu.europa.ec.markt.dss.exception.DSSException;
 import eu.europa.ec.markt.dss.parameter.DSSReference;
@@ -37,6 +36,7 @@ import eu.europa.ec.markt.dss.parameter.SignatureParameters;
 import eu.europa.ec.markt.dss.signature.DSSDocument;
 import eu.europa.ec.markt.dss.signature.DSSSignatureUtils;
 import eu.europa.ec.markt.dss.signature.InMemoryDocument;
+import eu.europa.ec.markt.dss.signature.MimeType;
 
 /**
  * This class handles the specifics of the detached XML signature.
@@ -80,7 +80,7 @@ class DetachedSignatureBuilder extends SignatureBuilder {
 			final String fileURI = currentDetachedDocument.getName() != null ? currentDetachedDocument.getName() : "";
 			reference.setUri(fileURI);
 			reference.setContents(currentDetachedDocument);
-			reference.setDigestMethodAlgorithm(DigestAlgorithm.SHA1);
+			reference.setDigestMethodAlgorithm(params.getDigestAlgorithm());
 
 			references.add(reference);
 			currentDetachedDocument = currentDetachedDocument.getNextDocument();
@@ -132,6 +132,8 @@ class DetachedSignatureBuilder extends SignatureBuilder {
 		signatureValueDom.appendChild(signatureValueNode);
 
 		byte[] documentBytes = DSSXMLUtils.transformDomToByteArray(documentDom);
-		return new InMemoryDocument(documentBytes);
+		final InMemoryDocument inMemoryDocument = new InMemoryDocument(documentBytes);
+		inMemoryDocument.setMimeType(MimeType.XML);
+		return inMemoryDocument;
 	}
 }
